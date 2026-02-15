@@ -1,12 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, StyleSheet, useWindowDimensions, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
-import { Text, Card, IconButton, Portal, Modal, TextInput, Button, Checkbox, Divider, Surface } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Linking from 'expo-linking';
-import { DatePickerModal } from 'react-native-paper-dates';
 import { PieChart } from 'react-native-chart-kit';
 import { Colors } from '../constants/Colors';
 import { firebaseService, Appointment } from '../services/firebaseService';
+import { NotificationService, BuzzerSettings } from '../services/NotificationService';
+import Slider from '@react-native-community/slider';
 
 export default function Dashboard() {
     const { width } = useWindowDimensions();
@@ -18,6 +14,7 @@ export default function Dashboard() {
     // Modal State
     const [modalVisible, setModalVisible] = useState(false);
     const [analysisVisible, setAnalysisVisible] = useState(false);
+    const [settingsVisible, setSettingsVisible] = useState(false);
     const [selectedSlot, setSelectedSlot] = useState<{ pitchId: 'barnebau' | 'noucamp', timeSlot: string } | null>(null);
     const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
 
@@ -34,6 +31,29 @@ export default function Dashboard() {
     // Analysis State
     const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+    // Buzzer Settings
+    const [buzzerSettings, setBuzzerSettings] = useState<BuzzerSettings>({
+        startEnabled: true,
+        endEnabled: true,
+        warningEnabled: true,
+        volume: 1.0
+    });
+
+    useEffect(() => {
+        NotificationService.requestPermissions();
+        loadBuzzerSettings();
+    }, []);
+
+    const loadBuzzerSettings = async () => {
+        const settings = await NotificationService.getSettings();
+        setBuzzerSettings(settings);
+    };
+
+    const handleSaveSettings = async (newSettings: BuzzerSettings) => {
+        setBuzzerSettings(newSettings);
+        await NotificationService.saveSettings(newSettings);
+    };
 
     const onConfirmDate = React.useCallback(
         (params: any) => {
@@ -70,7 +90,6 @@ export default function Dashboard() {
             const monthStr = `${month}.${year}`;
 
             const data = await firebaseService.getAllAppointmentsInMonth(monthStr);
-            // Frontend tarafında ay filtrelemesi yapalım (dd.mm.yy formatına göre)
             const filtered = data.filter(app => app.dateString.endsWith(monthStr));
             setAllAppointments(filtered);
             setAnalysisVisible(true);
@@ -90,7 +109,6 @@ export default function Dashboard() {
         const bookedSlots = allAppointments.length;
         const subscriptionCount = allAppointments.filter(a => a.isSubscription).length;
 
-        // Müşteri bazlı abone sayıları
         const customerCounts: { [key: string]: number } = {};
         allAppointments.forEach(app => {
             if (app.customerName) {
@@ -165,11 +183,21 @@ export default function Dashboard() {
                 status: 'booked' as const,
             };
 
+            let savedId = editingAppointment?.id;
             if (editingAppointment?.id) {
                 await firebaseService.updateAppointment(editingAppointment.id, appData);
             } else {
-                await firebaseService.addAppointment(appData);
+                const res = await firebaseService.addAppointment(appData);
+                // @ts-ignore
+                savedId = res.id;
             }
+
+            // Zil Sistemini Zamanla
+            if (savedId) {
+                await NotificationService.cancelAllForAppointment(savedId);
+                await NotificationService.scheduleBuzzer(savedId, dateStr, selectedSlot!.timeSlot);
+            }
+
             setModalVisible(false);
             fetchAppointments();
         } catch (error) {
@@ -183,6 +211,7 @@ export default function Dashboard() {
         if (!editingAppointment?.id) return;
         setIsSaving(true);
         try {
+            await NotificationService.cancelAllForAppointment(editingAppointment.id);
             await firebaseService.deleteAccount(editingAppointment.id);
             setModalVisible(false);
             fetchAppointments();
@@ -328,6 +357,60 @@ export default function Dashboard() {
                         ))}
                     </ScrollView>
                 </Modal>
+
+                {/* Zil Ayarları Modalı */}
+                <Modal visible={settingsVisible} onDismiss={() => setSettingsVisible(false)} contentContainerStyle={styles.modalContent}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                        <Text variant="headlineSmall" style={styles.modalTitle}>Zil Ayarları</Text>
+                        <IconButton icon="close" iconColor="#fff" onPress={() => setSettingsVisible(false)} />
+                    </View>
+
+                    <Card style={[styles.settingsCard, { marginBottom: 12 }]}>
+                        <View style={styles.settingRow}>
+                            <View>
+                                <Text style={styles.settingTitle}>Başlangıç Düziği</Text>
+                                <Text style={styles.settingDesc}>Maç başladığında çalar</Text>
+                            </View>
+                            <Checkbox status={buzzerSettings.startEnabled ? 'checked' : 'unchecked'} onPress={() => handleSaveSettings({ ...buzzerSettings, startEnabled: !buzzerSettings.startEnabled })} color={Colors.dark.primary} />
+                        </View>
+                    </Card>
+
+                    <Card style={[styles.settingsCard, { marginBottom: 12 }]}>
+                        <View style={styles.settingRow}>
+                            <View>
+                                <Text style={styles.settingTitle}>Son 5 Dakika Uyarısı</Text>
+                                <Text style={styles.settingDesc}>Bitişe 5 dk kala çalar</Text>
+                            </View>
+                            <Checkbox status={buzzerSettings.warningEnabled ? 'checked' : 'unchecked'} onPress={() => handleSaveSettings({ ...buzzerSettings, warningEnabled: !buzzerSettings.warningEnabled })} color={Colors.dark.primary} />
+                        </View>
+                    </Card>
+
+                    <Card style={[styles.settingsCard, { marginBottom: 12 }]}>
+                        <View style={styles.settingRow}>
+                            <View>
+                                <Text style={styles.settingTitle}>Bitiş Düziği</Text>
+                                <Text style={styles.settingDesc}>Süre dolduğunda çalar (3 Düdük)</Text>
+                            </View>
+                            <Checkbox status={buzzerSettings.endEnabled ? 'checked' : 'unchecked'} onPress={() => handleSaveSettings({ ...buzzerSettings, endEnabled: !buzzerSettings.endEnabled })} color={Colors.dark.primary} />
+                        </View>
+                    </Card>
+
+                    <View style={{ marginTop: 20 }}>
+                        <Text style={styles.settingTitle}>Ses Seviyesi</Text>
+                        <Slider
+                            style={{ width: '100%', height: 40 }}
+                            minimumValue={0}
+                            maximumValue={1}
+                            value={buzzerSettings.volume}
+                            onSlidingComplete={(val) => handleSaveSettings({ ...buzzerSettings, volume: val })}
+                            minimumTrackTintColor={Colors.dark.primary}
+                            maximumTrackTintColor="rgba(255,255,255,0.1)"
+                            thumbTintColor={Colors.dark.primary}
+                        />
+                    </View>
+
+                    <Button mode="contained" onPress={() => setSettingsVisible(false)} style={[styles.saveButton, { marginTop: 20 }]} buttonColor={Colors.dark.primary} textColor="#000">Tamam</Button>
+                </Modal>
             </Portal>
 
             <View style={styles.header}>
@@ -344,6 +427,13 @@ export default function Dashboard() {
                     </View>
                 </View>
                 <View style={{ flexDirection: 'row' }}>
+                    <IconButton
+                        icon="bell-ring"
+                        mode="contained"
+                        containerColor="rgba(255, 255, 255, 0.05)"
+                        iconColor={Colors.dark.primary}
+                        onPress={() => setSettingsVisible(true)}
+                    />
                     <IconButton
                         icon="chart-pie"
                         mode="contained"
@@ -593,5 +683,24 @@ const styles = StyleSheet.create({
     aboneCount: {
         color: Colors.dark.primary,
         fontWeight: 'bold',
+    },
+    settingsCard: {
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderRadius: 12,
+    },
+    settingRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 16,
+    },
+    settingTitle: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    settingDesc: {
+        color: Colors.dark.textSecondary,
+        fontSize: 12,
     }
 });
