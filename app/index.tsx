@@ -1,3 +1,8 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, StyleSheet, useWindowDimensions, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions, Linking } from 'react-native';
+import { Text, Card, IconButton, Portal, Modal, TextInput, Button, Checkbox, Divider, Surface } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { DatePickerModal } from 'react-native-paper-dates';
 import { PieChart } from 'react-native-chart-kit';
 import { Colors } from '../constants/Colors';
 import { firebaseService, Appointment } from '../services/firebaseService';
@@ -402,7 +407,7 @@ export default function Dashboard() {
                             minimumValue={0}
                             maximumValue={1}
                             value={buzzerSettings.volume}
-                            onSlidingComplete={(val) => handleSaveSettings({ ...buzzerSettings, volume: val })}
+                            onSlidingComplete={(val: number) => handleSaveSettings({ ...buzzerSettings, volume: val })}
                             minimumTrackTintColor={Colors.dark.primary}
                             maximumTrackTintColor="rgba(255,255,255,0.1)"
                             thumbTintColor={Colors.dark.primary}

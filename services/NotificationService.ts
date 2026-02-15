@@ -9,6 +9,8 @@ Notifications.setNotificationHandler({
         shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
     }),
 });
 
@@ -74,10 +76,10 @@ export const NotificationService = {
                 content: {
                     title: 'Maç Başladı! ⚽',
                     body: `${timeSlot} maçı için başlama düdüğü çaldı.`,
-                    sound: 'start.wav', // assets/sounds içinde olmalı
+                    sound: 'start.wav',
                     data: { appointmentId, type: 'start' },
                 },
-                trigger: startDate,
+                trigger: { date: startDate } as Notifications.NotificationTriggerInput,
             });
         }
 
@@ -92,7 +94,7 @@ export const NotificationService = {
                         sound: 'warning.wav',
                         data: { appointmentId, type: 'warning' },
                     },
-                    trigger: warningDate,
+                    trigger: { date: warningDate } as Notifications.NotificationTriggerInput,
                 });
             }
         }
@@ -106,7 +108,7 @@ export const NotificationService = {
                     sound: 'end.wav',
                     data: { appointmentId, type: 'end' },
                 },
-                trigger: endDate,
+                trigger: { date: endDate } as Notifications.NotificationTriggerInput,
             });
         }
     },
