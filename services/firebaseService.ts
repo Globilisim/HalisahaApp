@@ -73,12 +73,35 @@ export const firebaseService = {
     },
 
     // Randevu sil
-    deleteAppointment: async (id: string) => {
+    deleteAccount: async (id: string) => {
         try {
             const appRef = doc(db, APPOINTMENTS_COLLECTION, id);
             await deleteDoc(appRef);
         } catch (error) {
             console.error("Randevu silinirken hata oluştu:", error);
+            throw error;
+        }
+    },
+
+    // Belirli bir ay için tüm randevuları getir (Analiz için)
+    getAllAppointmentsInMonth: async (monthStr: string) => {
+        try {
+            const appointmentsRef = collection(db, APPOINTMENTS_COLLECTION);
+
+            // dateString formatı "dd.mm.yy" olduğu için aramayı "xx.mm.yy" şeklinde yaparız
+            // Ancak Firestore 'where' ile partial string match (starts-with hariç) zor olduğu için 
+            // Tüm ayları çekmek yerine istemci tarafında filtreleme yapacağız veya .54.033 gibi sürümlerde 
+            // regex desteği kısıtlıdır. En garantisi ilgili ayın başı ve sonu arasındaki veriyi çekmektir.
+
+            // Basitlik ve performans için: Mevcut koleksiyondaki tüm randevuları çekip 
+            // (Halı saha verisi genelde binlerce satır olmaz) frontend'de filtreleyelim.
+            const querySnapshot = await getDocs(appointmentsRef);
+            return querySnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            })) as Appointment[];
+        } catch (error) {
+            console.error("Analiz verileri çekilirken hata oluştu:", error);
             throw error;
         }
     }

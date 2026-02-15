@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, useWindowDimensions, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Text, Card, IconButton, Portal, Modal, TextInput, Button, Checkbox, Divider } from 'react-native-paper';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, StyleSheet, useWindowDimensions, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
+import { Text, Card, IconButton, Portal, Modal, TextInput, Button, Checkbox, Divider, Surface } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
 import { DatePickerModal } from 'react-native-paper-dates';
+import { PieChart } from 'react-native-chart-kit';
 import { Colors } from '../constants/Colors';
 import { firebaseService, Appointment } from '../services/firebaseService';
 
@@ -16,6 +17,7 @@ export default function Dashboard() {
 
     // Modal State
     const [modalVisible, setModalVisible] = useState(false);
+    const [analysisVisible, setAnalysisVisible] = useState(false);
     const [selectedSlot, setSelectedSlot] = useState<{ pitchId: 'barnebau' | 'noucamp', timeSlot: string } | null>(null);
     const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
 
@@ -28,6 +30,10 @@ export default function Dashboard() {
 
     // Calendar State
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+
+    // Analysis State
+    const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
 
     const onConfirmDate = React.useCallback(
         (params: any) => {
@@ -56,9 +62,70 @@ export default function Dashboard() {
         }
     };
 
+    const fetchAnalysisData = async () => {
+        setIsAnalyzing(true);
+        try {
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const year = String(selectedDate.getFullYear()).slice(-2);
+            const monthStr = `${month}.${year}`;
+
+            const data = await firebaseService.getAllAppointmentsInMonth(monthStr);
+            // Frontend tarafında ay filtrelemesi yapalım (dd.mm.yy formatına göre)
+            const filtered = data.filter(app => app.dateString.endsWith(monthStr));
+            setAllAppointments(filtered);
+            setAnalysisVisible(true);
+        } catch (error) {
+            console.error("Analiz verisi çekme hatası:", error);
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
     useEffect(() => {
         fetchAppointments();
     }, [selectedDate]);
+
+    const stats = useMemo(() => {
+        const totalSlotsInMonth = 11 * 2 * 30; // 11 saat * 2 saha * 30 gün (temsili)
+        const bookedSlots = allAppointments.length;
+        const subscriptionCount = allAppointments.filter(a => a.isSubscription).length;
+
+        // Müşteri bazlı abone sayıları
+        const customerCounts: { [key: string]: number } = {};
+        allAppointments.forEach(app => {
+            if (app.customerName) {
+                customerCounts[app.customerName] = (customerCounts[app.customerName] || 0) + 1;
+            }
+        });
+
+        const topCustomers = Object.entries(customerCounts)
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, 5);
+
+        return {
+            bookedSlots,
+            emptySlots: Math.max(0, totalSlotsInMonth - bookedSlots),
+            subscriptionCount,
+            topCustomers
+        };
+    }, [allAppointments]);
+
+    const chartData = [
+        {
+            name: "Dolu",
+            population: stats.bookedSlots,
+            color: Colors.dark.primary,
+            legendFontColor: "#7F7F7F",
+            legendFontSize: 12
+        },
+        {
+            name: "Boş",
+            population: stats.emptySlots,
+            color: "rgba(255,255,255,0.1)",
+            legendFontColor: "#7F7F7F",
+            legendFontSize: 12
+        }
+    ];
 
     const handleOpenModal = (pitchId: 'barnebau' | 'noucamp', timeSlot: string, app?: Appointment) => {
         setSelectedSlot({ pitchId, timeSlot });
@@ -116,7 +183,7 @@ export default function Dashboard() {
         if (!editingAppointment?.id) return;
         setIsSaving(true);
         try {
-            await firebaseService.deleteAppointment(editingAppointment.id);
+            await firebaseService.deleteAccount(editingAppointment.id);
             setModalVisible(false);
             fetchAppointments();
         } catch (error) {
@@ -174,6 +241,7 @@ export default function Dashboard() {
     return (
         <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
             <Portal>
+                {/* Randevu Modalı */}
                 <Modal visible={modalVisible} onDismiss={() => setModalVisible(false)} contentContainerStyle={styles.modalContent}>
                     <Text variant="headlineSmall" style={styles.modalTitle}>
                         {editingAppointment ? 'Randevu Düzenle' : 'Yeni Randevu'}
@@ -214,6 +282,52 @@ export default function Dashboard() {
                         <Button mode="contained" onPress={handleSave} style={styles.saveButton} buttonColor={Colors.dark.primary} textColor="#000" loading={isSaving}>Kaydet</Button>
                     </View>
                 </Modal>
+
+                {/* Analiz Modalı */}
+                <Modal visible={analysisVisible} onDismiss={() => setAnalysisVisible(false)} contentContainerStyle={[styles.modalContent, { width: width * 0.9, alignSelf: 'center', height: '80%' }]}>
+                    <ScrollView showsVerticalScrollIndicator={false}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                            <Text variant="headlineSmall" style={styles.modalTitle}>Aylık Analiz</Text>
+                            <IconButton icon="close" iconColor="#fff" onPress={() => setAnalysisVisible(false)} />
+                        </View>
+
+                        <View style={styles.statsGrid}>
+                            <Surface style={styles.statCard} elevation={2}>
+                                <Text style={styles.statLabel}>Toplam Maç</Text>
+                                <Text style={styles.statValue}>{stats.bookedSlots}</Text>
+                            </Surface>
+                            <Surface style={styles.statCard} elevation={2}>
+                                <Text style={styles.statLabel}>Abone Sayısı</Text>
+                                <Text style={styles.statValue}>{stats.subscriptionCount}</Text>
+                            </Surface>
+                        </View>
+
+                        <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Doluluk Oranı</Text>
+                        <View style={styles.chartContainer}>
+                            <PieChart
+                                data={chartData}
+                                width={Dimensions.get("window").width * 0.8}
+                                height={180}
+                                chartConfig={{
+                                    color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                                }}
+                                accessor={"population"}
+                                backgroundColor={"transparent"}
+                                paddingLeft={"15"}
+                                center={[0, 0]}
+                                absolute
+                            />
+                        </View>
+
+                        <Text style={styles.sectionTitle}>En Çok Gelen Aboneler</Text>
+                        {stats.topCustomers.map(([name, count], index) => (
+                            <View key={index} style={styles.aboneItem}>
+                                <Text style={styles.aboneName}>{name}</Text>
+                                <Text style={styles.aboneCount}>{count} Randevu</Text>
+                            </View>
+                        ))}
+                    </ScrollView>
+                </Modal>
             </Portal>
 
             <View style={styles.header}>
@@ -229,13 +343,23 @@ export default function Dashboard() {
                         <Text style={styles.subtitle}>İşletme Paneli • {selectedDate.toLocaleDateString('tr-TR')}</Text>
                     </View>
                 </View>
-                <IconButton
-                    icon="calendar-month"
-                    mode="contained"
-                    containerColor={Colors.dark.surface}
-                    iconColor={Colors.dark.primary}
-                    onPress={() => setIsCalendarOpen(true)}
-                />
+                <View style={{ flexDirection: 'row' }}>
+                    <IconButton
+                        icon="chart-pie"
+                        mode="contained"
+                        containerColor="rgba(0, 230, 118, 0.1)"
+                        iconColor={Colors.dark.primary}
+                        onPress={fetchAnalysisData}
+                        loading={isAnalyzing}
+                    />
+                    <IconButton
+                        icon="calendar-month"
+                        mode="contained"
+                        containerColor={Colors.dark.surface}
+                        iconColor={Colors.dark.primary}
+                        onPress={() => setIsCalendarOpen(true)}
+                    />
+                </View>
             </View>
 
             <DatePickerModal
@@ -287,7 +411,7 @@ const styles = StyleSheet.create({
     title: {
         color: Colors.dark.primary,
         fontWeight: '900',
-        letterSpacing: 2, // Daha geniş harf aralığı
+        letterSpacing: 2,
     },
     subtitle: {
         color: Colors.dark.textSecondary,
@@ -307,8 +431,8 @@ const styles = StyleSheet.create({
     },
     fieldColumn: {
         flex: 1,
-        backgroundColor: 'rgba(255,255,255,0.05)', // Hafif daha belirgin cam etkisi
-        borderRadius: 20, // Daha yuvarlak köşeler
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderRadius: 20,
         padding: 15,
         marginBottom: 10,
         marginHorizontal: 5,
@@ -347,10 +471,10 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(0, 230, 118, 0.1)',
     },
     bookedCard: {
-        backgroundColor: 'rgba(255, 68, 68, 0.15)', // Daha belirgin kırmızı tonu
+        backgroundColor: 'rgba(255, 68, 68, 0.15)',
         borderWidth: 1,
         borderColor: 'rgba(255, 68, 68, 0.3)',
-        borderLeftWidth: 5, // Sol tarafa kalın bir şerit
+        borderLeftWidth: 5,
         borderLeftColor: '#ff4444',
     },
     slotContent: {
@@ -424,5 +548,50 @@ const styles = StyleSheet.create({
     saveButton: {
         borderRadius: 8,
         paddingHorizontal: 10,
+    },
+    statsGrid: {
+        flexDirection: 'row',
+        gap: 10,
+        marginBottom: 10,
+    },
+    statCard: {
+        flex: 1,
+        padding: 15,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        alignItems: 'center',
+    },
+    statLabel: {
+        color: Colors.dark.textSecondary,
+        fontSize: 12,
+    },
+    statValue: {
+        color: Colors.dark.primary,
+        fontSize: 24,
+        fontWeight: 'bold',
+    },
+    sectionTitle: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 10,
+    },
+    chartContainer: {
+        alignItems: 'center',
+        marginVertical: 10,
+    },
+    aboneItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.05)',
+    },
+    aboneName: {
+        color: '#fff',
+    },
+    aboneCount: {
+        color: Colors.dark.primary,
+        fontWeight: 'bold',
     }
 });
