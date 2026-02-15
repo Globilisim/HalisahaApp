@@ -213,18 +213,38 @@ export default function Dashboard() {
     };
 
     const handleDelete = async () => {
-        if (!editingAppointment?.id) return;
-        setIsSaving(true);
-        try {
-            await NotificationService.cancelAllForAppointment(editingAppointment.id);
-            await firebaseService.deleteAccount(editingAppointment.id);
-            setModalVisible(false);
-            fetchAppointments();
-        } catch (error) {
-            console.error("Silme hatası:", error);
-        } finally {
-            setIsSaving(false);
+        if (!editingAppointment?.id) {
+            console.warn("Silinecek randevu ID'si bulunamadı.");
+            return;
         }
+
+        import('react-native').then(({ Alert }) => {
+            Alert.alert(
+                "Randevu Sil",
+                "Bu randevuyu silmek istediğinize emin misiniz?",
+                [
+                    { text: "Vazgeç", style: "cancel" },
+                    {
+                        text: "Sil",
+                        style: "destructive",
+                        onPress: async () => {
+                            setIsSaving(true);
+                            try {
+                                await NotificationService.cancelAllForAppointment(editingAppointment.id!);
+                                await firebaseService.deleteAppointment(editingAppointment.id!);
+                                setModalVisible(false);
+                                fetchAppointments();
+                            } catch (error) {
+                                console.error("Silme hatası:", error);
+                                Alert.alert("Hata", "Randevu silinirken bir sorun oluştu.");
+                            } finally {
+                                setIsSaving(false);
+                            }
+                        }
+                    }
+                ]
+            );
+        });
     };
 
     const renderPitchColumn = (pitchId: 'barnebau' | 'noucamp', title: string) => {

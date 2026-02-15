@@ -73,7 +73,7 @@ export const firebaseService = {
     },
 
     // Randevu sil
-    deleteAccount: async (id: string) => {
+    deleteAppointment: async (id: string) => {
         try {
             const appRef = doc(db, APPOINTMENTS_COLLECTION, id);
             await deleteDoc(appRef);
