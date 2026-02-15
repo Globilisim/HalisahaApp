@@ -1,17 +1,24 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, StyleSheet, useWindowDimensions, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions, Linking } from 'react-native';
-import { Text, Card, IconButton, Portal, Modal, TextInput, Button, Checkbox, Divider, Surface } from 'react-native-paper';
+import { View, StyleSheet, useWindowDimensions, ScrollView, TouchableOpacity, Dimensions, Linking, Image, Alert } from 'react-native';
+import { Audio } from 'expo-av';
+import { Text, Card, IconButton, Portal, Modal, TextInput, Button, Checkbox, Divider, Surface, ActivityIndicator, FAB } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DatePickerModal } from 'react-native-paper-dates';
 import { PieChart } from 'react-native-chart-kit';
-import { Colors } from '../constants/Colors';
 import { firebaseService, Appointment } from '../services/firebaseService';
 import { NotificationService, BuzzerSettings } from '../services/NotificationService';
 import Slider from '@react-native-community/slider';
+import { ThemedCard } from '../components/ThemedCard';
+import { ThemedText } from '../components/ThemedText';
+import { ThemedContainer } from '../components/ThemedContainer';
+import { useTheme } from '../config/ThemeContext';
 
 export default function Dashboard() {
     const { width } = useWindowDimensions();
-    const isTablet = width > 768;
+    const { theme, setMode, mode, isDark } = useTheme();
+    const isMobile = width < 768;
+    const isTablet = width >= 768 && width <= 1024;
+    const isDesktop = width > 1024;
     const [loading, setLoading] = useState(false);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [selectedDate, setSelectedDate] = useState(new Date());
@@ -137,15 +144,15 @@ export default function Dashboard() {
         {
             name: "Dolu",
             population: stats.bookedSlots,
-            color: Colors.dark.primary,
-            legendFontColor: "#7F7F7F",
+            color: theme['color-primary'],
+            legendFontColor: theme['color-text-secondary'],
             legendFontSize: 12
         },
         {
             name: "Boş",
             population: stats.emptySlots,
-            color: "rgba(255,255,255,0.1)",
-            legendFontColor: "#7F7F7F",
+            color: theme['color-text-secondary'] + '20', // Opacity shortcut
+            legendFontColor: theme['color-text-secondary'],
             legendFontSize: 12
         }
     ];
@@ -218,44 +225,72 @@ export default function Dashboard() {
             return;
         }
 
-        import('react-native').then(({ Alert }) => {
-            Alert.alert(
-                "Randevu Sil",
-                "Bu randevuyu silmek istediğinize emin misiniz?",
-                [
-                    { text: "Vazgeç", style: "cancel" },
-                    {
-                        text: "Sil",
-                        style: "destructive",
-                        onPress: async () => {
-                            setIsSaving(true);
-                            try {
-                                await NotificationService.cancelAllForAppointment(editingAppointment.id!);
-                                await firebaseService.deleteAppointment(editingAppointment.id!);
-                                setModalVisible(false);
-                                fetchAppointments();
-                            } catch (error) {
-                                console.error("Silme hatası:", error);
-                                Alert.alert("Hata", "Randevu silinirken bir sorun oluştu.");
-                            } finally {
-                                setIsSaving(false);
-                            }
+        Alert.alert(
+            "Randevu Sil",
+            "Bu randevuyu silmek istediğinize emin misiniz?",
+            [
+                { text: "Vazgeç", style: "cancel" },
+                {
+                    text: "Sil",
+                    style: "destructive",
+                    onPress: async () => {
+                        setIsSaving(true);
+                        try {
+                            await NotificationService.cancelAllForAppointment(editingAppointment.id!);
+                            await firebaseService.deleteAppointment(editingAppointment.id!);
+                            setModalVisible(false);
+                            fetchAppointments();
+                        } catch (error) {
+                            console.error("Silme hatası:", error);
+                            Alert.alert("Hata", "Randevu silinirken bir sorun oluştu.");
+                        } finally {
+                            setIsSaving(false);
                         }
                     }
-                ]
-            );
-        });
+                }
+            ]
+        );
+    };
+
+    const playSound = async (type: 'start' | 'warning' | 'end') => {
+        try {
+            let soundFile;
+            switch (type) {
+                case 'start':
+                    soundFile = require('../assets/sounds/start.wav');
+                    break;
+                case 'warning':
+                    soundFile = require('../assets/sounds/warning.wav');
+                    break;
+                case 'end':
+                    soundFile = require('../assets/sounds/end.wav');
+                    break;
+            }
+
+            const { sound } = await Audio.Sound.createAsync(soundFile);
+            await sound.setVolumeAsync(buzzerSettings.volume);
+            await sound.playAsync();
+
+            sound.setOnPlaybackStatusUpdate(async (status) => {
+                if (status.isLoaded && status.didJustFinish) {
+                    await sound.unloadAsync();
+                }
+            });
+        } catch (error) {
+            console.log('Ses çalma hatası:', error);
+        }
     };
 
     const renderPitchColumn = (pitchId: 'barnebau' | 'noucamp', title: string) => {
         const pitchAppointments = appointments.filter(app => app.pitchId === pitchId);
 
         return (
-            <View style={styles.fieldColumn}>
+            <View style={[styles.fieldColumn, { backgroundColor: theme['color-surface'], borderColor: theme['color-border'] }]}>
                 <View style={styles.pitchHeader}>
-                    <Text variant="titleLarge" style={styles.fieldTitle}>{title}</Text>
-                    <View style={styles.pitchStatusBadge}>
-                        <Text style={styles.statusText}>{pitchAppointments.length} Dolu</Text>
+                    <ThemedText variant="h2" style={styles.fieldTitle}>{title}</ThemedText>
+                    <View style={[styles.pitchStatusBadge, { backgroundColor: theme['color-success'] + '26' }]}>
+                        <ThemedText style={[styles.statusText, { color: theme['color-success'] }]}>
+                            {pitchAppointments.length} Dolu</ThemedText>
                     </View>
                 </View>
 
@@ -266,24 +301,29 @@ export default function Dashboard() {
 
                         return (
                             <TouchableOpacity key={hour} activeOpacity={0.7} onPress={() => handleOpenModal(pitchId, timeStr, app)}>
-                                <Card style={[styles.slotCard, app ? styles.bookedCard : styles.availableCard]}>
+                                <ThemedCard style={[
+                                    styles.slotCard,
+                                    { backgroundColor: theme['color-surface'] },
+                                    app ? styles.bookedCard : styles.availableCard,
+                                    app ? { backgroundColor: theme['color-danger'] + '1A', borderColor: theme['color-danger'], borderLeftColor: theme['color-danger'] } : { borderColor: theme['color-success'] + '1A' }
+                                ]}>
                                     <View style={styles.slotContent}>
                                         <View style={{ flex: 1 }}>
                                             <View style={styles.timeRow}>
-                                                <Text style={styles.timeText}>{hour < 10 ? '0' + hour : hour}:00 - {(hour + 1) % 24}:00</Text>
-                                                {app?.isSubscription && <Text style={styles.aboneBadge}>ABONE</Text>}
+                                                <ThemedText style={[styles.timeText, { color: theme['color-text-primary'] }]}>{hour < 10 ? '0' + hour : hour}:00 - {(hour + 1) % 24}:00</ThemedText>
+                                                {app?.isSubscription && <ThemedText style={[styles.aboneBadge, { backgroundColor: theme['color-primary'], color: theme['color-bg'] }]}>ABONE</ThemedText>}
                                             </View>
-                                            <Text numberOfLines={1} style={styles.customerText}>
+                                            <ThemedText numberOfLines={1} style={[styles.customerText, { color: theme['color-text-secondary'] }]}>
                                                 {app ? app.customerName : 'Müsait'}
-                                            </Text>
+                                            </ThemedText>
                                         </View>
                                         <IconButton
                                             icon={app ? "pencil" : "plus-circle"}
-                                            iconColor={app ? Colors.dark.textSecondary : Colors.dark.primary}
+                                            iconColor={app ? theme['color-text-secondary'] : theme['color-primary']}
                                             size={20}
                                         />
                                     </View>
-                                </Card>
+                                </ThemedCard>
                             </TouchableOpacity>
                         );
                     })}
@@ -293,246 +333,308 @@ export default function Dashboard() {
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-            <Portal>
-                {/* Randevu Modalı */}
-                <Modal visible={modalVisible} onDismiss={() => setModalVisible(false)} contentContainerStyle={styles.modalContent}>
-                    <Text variant="headlineSmall" style={styles.modalTitle}>
-                        {editingAppointment ? 'Randevu Düzenle' : 'Yeni Randevu'}
-                    </Text>
-                    <Text style={styles.modalSubtitle}>
-                        {selectedSlot?.pitchId.toUpperCase()} • {selectedSlot?.timeSlot?.replace('.', ':')}
-                    </Text>
+        <ThemedContainer style={styles.container}>
+            <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+                <Portal>
+                    {/* Randevu Modalı */}
+                    <Modal visible={modalVisible} onDismiss={() => setModalVisible(false)} contentContainerStyle={[styles.modalContent, { backgroundColor: theme['color-surface'], borderColor: theme['color-border'] }]}>
+                        <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme['color-text-primary'] }]}>
+                            {editingAppointment ? 'Randevu Düzenle' : 'Yeni Randevu'}
+                        </Text>
+                        <Text style={[styles.modalSubtitle, { color: theme['color-text-secondary'] }]}>
+                            {selectedSlot?.pitchId.toUpperCase()} • {selectedSlot?.timeSlot?.replace('.', ':')}
+                        </Text>
 
-                    <TextInput label="Müşteri Adı" value={customerName} onChangeText={setCustomerName} style={styles.input} mode="outlined" outlineColor={Colors.dark.cardBorder} activeOutlineColor={Colors.dark.primary} textColor="#fff" />
-                    <TextInput label="Telefon Numarası" value={phoneNumber} onChangeText={setPhoneNumber} style={styles.input} mode="outlined" outlineColor={Colors.dark.cardBorder} activeOutlineColor={Colors.dark.primary} textColor="#fff" keyboardType="phone-pad" />
-                    <TextInput label="Kapora (TL)" value={deposit} onChangeText={setDeposit} style={styles.input} mode="outlined" outlineColor={Colors.dark.cardBorder} activeOutlineColor={Colors.dark.primary} textColor="#fff" keyboardType="numeric" />
+                        <TextInput label="Müşteri Adı" value={customerName} onChangeText={setCustomerName} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} />
+                        <TextInput label="Telefon Numarası" value={phoneNumber} onChangeText={setPhoneNumber} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} keyboardType="phone-pad" />
+                        <TextInput label="Kapora (TL)" value={deposit} onChangeText={setDeposit} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} keyboardType="numeric" />
 
-                    <View style={styles.checkboxRow}>
-                        <Checkbox status={isSubscription ? 'checked' : 'unchecked'} onPress={() => setIsSubscription(!isSubscription)} color={Colors.dark.primary} />
-                        <Text style={{ color: '#fff' }}>Abone Kaydı</Text>
-                    </View>
+                        <View style={styles.checkboxRow}>
+                            <Checkbox status={isSubscription ? 'checked' : 'unchecked'} onPress={() => setIsSubscription(!isSubscription)} color={theme['color-primary']} />
+                            <ThemedText style={{ color: theme['color-text-primary'] }}>Abone Kaydı</ThemedText>
+                        </View>
 
-                    <Divider style={styles.divider} />
+                        <Divider style={[styles.divider, { backgroundColor: theme['color-border'] }]} />
 
-                    <View style={styles.modalActions}>
-                        {editingAppointment && (
-                            <>
-                                <Button
-                                    mode="contained"
-                                    onPress={() => handleWhatsApp(phoneNumber, customerName)}
-                                    buttonColor="#25D366"
-                                    textColor="#fff"
-                                    icon="whatsapp"
-                                    style={{ borderRadius: 8 }}
-                                >
-                                    WhatsApp
-                                </Button>
-                                <Button mode="text" onPress={handleDelete} textColor="#ff5252" disabled={isSaving}>Sil</Button>
-                            </>
-                        )}
-                        <View style={{ flex: 1 }} />
-                        <Button mode="text" onPress={() => setModalVisible(false)} textColor={Colors.dark.textSecondary}>Vazgeç</Button>
-                        <Button mode="contained" onPress={handleSave} style={styles.saveButton} buttonColor={Colors.dark.primary} textColor="#000" loading={isSaving}>Kaydet</Button>
-                    </View>
-                </Modal>
+                        <View style={styles.modalActions}>
+                            {editingAppointment && (
+                                <>
+                                    <Button
+                                        mode="contained"
+                                        onPress={() => handleWhatsApp(phoneNumber, customerName)}
+                                        buttonColor="#25D366"
+                                        textColor="#fff"
+                                        icon="whatsapp"
+                                        style={{ borderRadius: 8 }}
+                                    >
+                                        WhatsApp
+                                    </Button>
+                                    <Button mode="text" onPress={handleDelete} textColor={theme['color-danger']} disabled={isSaving}>Sil</Button>
+                                </>
+                            )}
+                            <View style={{ flex: 1 }} />
+                            <Button mode="text" onPress={() => setModalVisible(false)} textColor={theme['color-text-secondary']}>Vazgeç</Button>
+                            <Button mode="contained" onPress={handleSave} style={styles.saveButton} buttonColor={theme['color-primary']} textColor={theme['color-bg']} loading={isSaving}>Kaydet</Button>
+                        </View>
+                    </Modal>
 
-                {/* Analiz Modalı */}
-                <Modal visible={analysisVisible} onDismiss={() => setAnalysisVisible(false)} contentContainerStyle={[styles.modalContent, { width: width * 0.9, alignSelf: 'center', height: '80%' }]}>
-                    <ScrollView showsVerticalScrollIndicator={false}>
+                    {/* Analiz Modalı */}
+                    <Modal visible={analysisVisible} onDismiss={() => setAnalysisVisible(false)} contentContainerStyle={[styles.modalContent, { width: width * 0.9, alignSelf: 'center', height: '80%', backgroundColor: theme['color-surface'], borderColor: theme['color-border'] }]}>
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                                <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme['color-text-primary'] }]}>Aylık Analiz</Text>
+                                <IconButton icon="close" iconColor={theme['color-text-primary']} onPress={() => setAnalysisVisible(false)} />
+                            </View>
+
+                            <View style={styles.statsGrid}>
+                                <Surface style={[styles.statCard, { backgroundColor: theme['color-surface'] }]} elevation={2}>
+                                    <Text style={[styles.statLabel, { color: theme['color-text-secondary'] }]}>Toplam Maç</Text>
+                                    <Text style={[styles.statValue, { color: theme['color-primary'] }]}>{stats.bookedSlots}</Text>
+                                </Surface>
+                                <Surface style={[styles.statCard, { backgroundColor: theme['color-surface'] }]} elevation={2}>
+                                    <Text style={[styles.statLabel, { color: theme['color-text-secondary'] }]}>Abone Sayısı</Text>
+                                    <Text style={[styles.statValue, { color: theme['color-primary'] }]}>{stats.subscriptionCount}</Text>
+                                </Surface>
+                            </View>
+
+                            <Text style={[styles.sectionTitle, { marginTop: 20, color: theme['color-text-primary'] }]}>Doluluk Oranı</Text>
+                            <View style={styles.chartContainer}>
+                                <PieChart
+                                    data={chartData}
+                                    width={Dimensions.get("window").width * 0.8}
+                                    height={180}
+                                    chartConfig={{
+                                        color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                                    }}
+                                    accessor={"population"}
+                                    backgroundColor={"transparent"}
+                                    paddingLeft={"15"}
+                                    center={[0, 0]}
+                                    absolute
+                                />
+                            </View>
+
+                            <Text style={[styles.sectionTitle, { color: theme['color-text-primary'] }]}>En Çok Gelen Aboneler</Text>
+                            {stats.topCustomers.map(([name, count], index) => (
+                                <View key={index} style={[styles.aboneItem, { borderBottomColor: theme['color-border'] }]}>
+                                    <Text style={[styles.aboneName, { color: theme['color-text-primary'] }]}>{name}</Text>
+                                    <Text style={[styles.aboneCount, { color: theme['color-primary'] }]}>{count} Randevu</Text>
+                                </View>
+                            ))}
+                        </ScrollView>
+                    </Modal>
+
+                    {/* Zil Ayarları Modalı */}
+                    <Modal visible={settingsVisible} onDismiss={() => setSettingsVisible(false)} contentContainerStyle={[styles.modalContent, { backgroundColor: theme['color-surface'], borderColor: theme['color-border'] }]}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                            <Text variant="headlineSmall" style={styles.modalTitle}>Aylık Analiz</Text>
-                            <IconButton icon="close" iconColor="#fff" onPress={() => setAnalysisVisible(false)} />
+                            <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme['color-text-primary'] }]}>Zil Ayarları</Text>
+                            <IconButton icon="close" iconColor={theme['color-text-primary']} onPress={() => setSettingsVisible(false)} />
                         </View>
 
-                        <View style={styles.statsGrid}>
-                            <Surface style={styles.statCard} elevation={2}>
-                                <Text style={styles.statLabel}>Toplam Maç</Text>
-                                <Text style={styles.statValue}>{stats.bookedSlots}</Text>
-                            </Surface>
-                            <Surface style={styles.statCard} elevation={2}>
-                                <Text style={styles.statLabel}>Abone Sayısı</Text>
-                                <Text style={styles.statValue}>{stats.subscriptionCount}</Text>
-                            </Surface>
+                        <ThemedCard style={[styles.settingsCard, { marginBottom: 12, backgroundColor: theme['color-surface'] }]}>
+                            <View style={styles.settingRow}>
+                                <View style={{ flex: 1 }}>
+                                    <ThemedText variant="label" style={[styles.settingTitle, { color: theme['color-text-primary'] }]}>Başlangıç Düziği</ThemedText>
+                                    <ThemedText variant="caption" style={[styles.settingDesc, { color: theme['color-text-secondary'] }]}>Maç başladığında çalar</ThemedText>
+                                </View>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <IconButton icon="play-circle" size={24} iconColor={theme['color-primary']} onPress={() => playSound('start')} />
+                                    <Checkbox status={buzzerSettings.startEnabled ? 'checked' : 'unchecked'} onPress={() => handleSaveSettings({ ...buzzerSettings, startEnabled: !buzzerSettings.startEnabled })} color={theme['color-primary']} />
+                                </View>
+                            </View>
+                        </ThemedCard>
+
+                        <ThemedCard style={[styles.settingsCard, { marginBottom: 12, backgroundColor: theme['color-surface'] }]}>
+                            <View style={styles.settingRow}>
+                                <View style={{ flex: 1 }}>
+                                    <ThemedText variant="label" style={[styles.settingTitle, { color: theme['color-text-primary'] }]}>Son 5 Dakika Uyarısı</ThemedText>
+                                    <ThemedText variant="caption" style={[styles.settingDesc, { color: theme['color-text-secondary'] }]}>Bitişe 5 dk kala çalar</ThemedText>
+                                </View>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <IconButton icon="play-circle" size={24} iconColor={theme['color-primary']} onPress={() => playSound('warning')} />
+                                    <Checkbox status={buzzerSettings.warningEnabled ? 'checked' : 'unchecked'} onPress={() => handleSaveSettings({ ...buzzerSettings, warningEnabled: !buzzerSettings.warningEnabled })} color={theme['color-primary']} />
+                                </View>
+                            </View>
+                        </ThemedCard>
+
+                        <ThemedCard style={[styles.settingsCard, { marginBottom: 12, backgroundColor: theme['color-surface'] }]}>
+                            <View style={styles.settingRow}>
+                                <View style={{ flex: 1 }}>
+                                    <ThemedText variant="label" style={[styles.settingTitle, { color: theme['color-text-primary'] }]}>Bitiş Düziği</ThemedText>
+                                    <ThemedText variant="caption" style={[styles.settingDesc, { color: theme['color-text-secondary'] }]}>Süre dolduğunda çalar (3 Düdük)</ThemedText>
+                                </View>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <IconButton icon="play-circle" size={24} iconColor={theme['color-primary']} onPress={() => playSound('end')} />
+                                    <Checkbox status={buzzerSettings.endEnabled ? 'checked' : 'unchecked'} onPress={() => handleSaveSettings({ ...buzzerSettings, endEnabled: !buzzerSettings.endEnabled })} color={theme['color-primary']} />
+                                </View>
+                            </View>
+                        </ThemedCard>
+
+                        <View style={{ marginTop: 20 }}>
+                            <ThemedText variant="label" style={{ fontWeight: 'bold', marginBottom: 10, color: theme['color-text-primary'] }}>Tema</ThemedText>
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                <Button
+                                    mode={mode === 'auto' ? 'contained' : 'outlined'}
+                                    onPress={() => setMode('auto')}
+                                    style={{ flex: 1 }}
+                                    textColor={mode === 'auto' ? theme['color-bg'] : theme['color-text-primary']}
+                                    buttonColor={mode === 'auto' ? theme['color-primary'] : undefined}
+                                >
+                                    Otomatik
+                                </Button>
+                                <Button
+                                    mode={mode === 'dark' ? 'contained' : 'outlined'}
+                                    onPress={() => setMode('dark')}
+                                    style={{ flex: 1 }}
+                                    textColor={mode === 'dark' ? theme['color-bg'] : theme['color-text-primary']}
+                                    buttonColor={mode === 'dark' ? theme['color-primary'] : undefined}
+                                >
+                                    Koyu
+                                </Button>
+                                <Button
+                                    mode={mode === 'light' ? 'contained' : 'outlined'}
+                                    onPress={() => setMode('light')}
+                                    style={{ flex: 1 }}
+                                    textColor={mode === 'light' ? theme['color-bg'] : theme['color-text-primary']}
+                                    buttonColor={mode === 'light' ? theme['color-primary'] : undefined}
+                                >
+                                    Açık
+                                </Button>
+                            </View>
                         </View>
 
-                        <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Doluluk Oranı</Text>
-                        <View style={styles.chartContainer}>
-                            <PieChart
-                                data={chartData}
-                                width={Dimensions.get("window").width * 0.8}
-                                height={180}
-                                chartConfig={{
-                                    color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                                }}
-                                accessor={"population"}
-                                backgroundColor={"transparent"}
-                                paddingLeft={"15"}
-                                center={[0, 0]}
-                                absolute
+                        <View style={{ marginTop: 20 }}>
+                            <ThemedText variant="label" style={{ fontWeight: 'bold', color: theme['color-text-primary'] }}>Ses Seviyesi</ThemedText>
+                            <Slider
+                                style={{ width: '100%', height: 40 }}
+                                minimumValue={0}
+                                maximumValue={1}
+                                value={buzzerSettings.volume}
+                                onSlidingComplete={(val: number) => handleSaveSettings({ ...buzzerSettings, volume: val })}
+                                minimumTrackTintColor={theme['color-primary']}
+                                maximumTrackTintColor={theme['color-text-secondary']}
+                                thumbTintColor={theme['color-primary']}
                             />
                         </View>
 
-                        <Text style={styles.sectionTitle}>En Çok Gelen Aboneler</Text>
-                        {stats.topCustomers.map(([name, count], index) => (
-                            <View key={index} style={styles.aboneItem}>
-                                <Text style={styles.aboneName}>{name}</Text>
-                                <Text style={styles.aboneCount}>{count} Randevu</Text>
-                            </View>
-                        ))}
-                    </ScrollView>
-                </Modal>
+                        <Button mode="contained" onPress={() => setSettingsVisible(false)} style={[styles.saveButton, { marginTop: 20 }]} buttonColor={theme['color-primary']} textColor={theme['color-bg']}>Tamam</Button>
+                    </Modal>
+                </Portal>
 
-                {/* Zil Ayarları Modalı */}
-                <Modal visible={settingsVisible} onDismiss={() => setSettingsVisible(false)} contentContainerStyle={styles.modalContent}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                        <Text variant="headlineSmall" style={styles.modalTitle}>Zil Ayarları</Text>
-                        <IconButton icon="close" iconColor="#fff" onPress={() => setSettingsVisible(false)} />
-                    </View>
-
-                    <Card style={[styles.settingsCard, { marginBottom: 12 }]}>
-                        <View style={styles.settingRow}>
-                            <View>
-                                <Text style={styles.settingTitle}>Başlangıç Düziği</Text>
-                                <Text style={styles.settingDesc}>Maç başladığında çalar</Text>
-                            </View>
-                            <Checkbox status={buzzerSettings.startEnabled ? 'checked' : 'unchecked'} onPress={() => handleSaveSettings({ ...buzzerSettings, startEnabled: !buzzerSettings.startEnabled })} color={Colors.dark.primary} />
-                        </View>
-                    </Card>
-
-                    <Card style={[styles.settingsCard, { marginBottom: 12 }]}>
-                        <View style={styles.settingRow}>
-                            <View>
-                                <Text style={styles.settingTitle}>Son 5 Dakika Uyarısı</Text>
-                                <Text style={styles.settingDesc}>Bitişe 5 dk kala çalar</Text>
-                            </View>
-                            <Checkbox status={buzzerSettings.warningEnabled ? 'checked' : 'unchecked'} onPress={() => handleSaveSettings({ ...buzzerSettings, warningEnabled: !buzzerSettings.warningEnabled })} color={Colors.dark.primary} />
-                        </View>
-                    </Card>
-
-                    <Card style={[styles.settingsCard, { marginBottom: 12 }]}>
-                        <View style={styles.settingRow}>
-                            <View>
-                                <Text style={styles.settingTitle}>Bitiş Düziği</Text>
-                                <Text style={styles.settingDesc}>Süre dolduğunda çalar (3 Düdük)</Text>
-                            </View>
-                            <Checkbox status={buzzerSettings.endEnabled ? 'checked' : 'unchecked'} onPress={() => handleSaveSettings({ ...buzzerSettings, endEnabled: !buzzerSettings.endEnabled })} color={Colors.dark.primary} />
-                        </View>
-                    </Card>
-
-                    <View style={{ marginTop: 20 }}>
-                        <Text style={styles.settingTitle}>Ses Seviyesi</Text>
-                        <Slider
-                            style={{ width: '100%', height: 40 }}
-                            minimumValue={0}
-                            maximumValue={1}
-                            value={buzzerSettings.volume}
-                            onSlidingComplete={(val: number) => handleSaveSettings({ ...buzzerSettings, volume: val })}
-                            minimumTrackTintColor={Colors.dark.primary}
-                            maximumTrackTintColor="rgba(255,255,255,0.1)"
-                            thumbTintColor={Colors.dark.primary}
+                <View style={styles.headerContainer}>
+                    {/* Banner Alanı */}
+                    <View style={styles.bannerArea}>
+                        <Image
+                            source={require('../assets/banner.png')}
+                            style={styles.bannerImage}
+                            resizeMode="contain"
                         />
                     </View>
 
-                    <Button mode="contained" onPress={() => setSettingsVisible(false)} style={[styles.saveButton, { marginTop: 20 }]} buttonColor={Colors.dark.primary} textColor="#000">Tamam</Button>
-                </Modal>
-            </Portal>
-
-            <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <IconButton
-                        icon="stadium-variant"
-                        iconColor={Colors.dark.primary}
-                        size={32}
-                        style={styles.logoIcon}
-                    />
-                    <View>
-                        <Text variant="headlineMedium" style={styles.title}>SPORT CITY</Text>
-                        <Text style={styles.subtitle}>İşletme Paneli • {selectedDate.toLocaleDateString('tr-TR')}</Text>
+                    {/* Kontroller ve Tarih */}
+                    <View style={styles.controlsArea}>
+                        <View>
+                            <ThemedText variant="h2" style={[styles.title, { color: theme['color-text-primary'] }]}>SPORT CITY</ThemedText>
+                            <ThemedText style={[styles.subtitle, { color: theme['color-text-secondary'] }]}>İşletme Paneli • {selectedDate.toLocaleDateString('tr-TR')}</ThemedText>
+                        </View>
+                        <View style={{ flexDirection: 'row' }}>
+                            <IconButton
+                                icon="bell-ring"
+                                mode="contained"
+                                containerColor={theme['color-surface']}
+                                iconColor={theme['color-primary']}
+                                size={20}
+                                onPress={() => setSettingsVisible(true)}
+                            />
+                            <IconButton
+                                icon="chart-pie"
+                                mode="contained"
+                                containerColor={theme['color-surface']}
+                                iconColor={theme['color-primary']}
+                                size={20}
+                                onPress={fetchAnalysisData}
+                                loading={isAnalyzing}
+                            />
+                            <IconButton
+                                icon="calendar-month"
+                                mode="contained"
+                                containerColor={theme['color-surface']}
+                                iconColor={theme['color-primary']}
+                                size={20}
+                                onPress={() => setIsCalendarOpen(true)}
+                            />
+                        </View>
                     </View>
                 </View>
-                <View style={{ flexDirection: 'row' }}>
-                    <IconButton
-                        icon="bell-ring"
-                        mode="contained"
-                        containerColor="rgba(255, 255, 255, 0.05)"
-                        iconColor={Colors.dark.primary}
-                        onPress={() => setSettingsVisible(true)}
-                    />
-                    <IconButton
-                        icon="chart-pie"
-                        mode="contained"
-                        containerColor="rgba(0, 230, 118, 0.1)"
-                        iconColor={Colors.dark.primary}
-                        onPress={fetchAnalysisData}
-                        loading={isAnalyzing}
-                    />
-                    <IconButton
-                        icon="calendar-month"
-                        mode="contained"
-                        containerColor={Colors.dark.surface}
-                        iconColor={Colors.dark.primary}
-                        onPress={() => setIsCalendarOpen(true)}
-                    />
-                </View>
-            </View>
 
-            <DatePickerModal
-                locale="tr"
-                mode="single"
-                visible={isCalendarOpen}
-                onDismiss={() => setIsCalendarOpen(false)}
-                date={selectedDate}
-                onConfirm={onConfirmDate}
-                label="Tarih Seçin"
+                <DatePickerModal
+                    locale="tr"
+                    mode="single"
+                    visible={isCalendarOpen}
+                    onDismiss={() => setIsCalendarOpen(false)}
+                    date={selectedDate}
+                    onConfirm={onConfirmDate}
+                    label="Tarih Seçin"
+                />
+
+                {loading ? (
+                    <ThemedContainer style={styles.loadingContainer}>
+                        <ActivityIndicator size="large" color={theme['color-primary']} />
+                        <ThemedText style={[styles.loadingText, { color: theme['color-text-primary'] }]}>Yükleniyor...</ThemedText>
+                    </ThemedContainer>
+                ) : (
+                    <View style={[styles.content, isMobile ? styles.mobileContent : styles.tabletContent]}>
+                        {renderPitchColumn('barnebau', 'BARNEBAU')}
+                        {renderPitchColumn('noucamp', 'NOU CAMP')}
+                    </View>
+                )}
+            </SafeAreaView>
+            <FAB
+                icon="plus"
+                style={[styles.fab, { backgroundColor: theme['color-primary'] }]}
+                color={theme['color-bg']}
+                onPress={() => {
+                    // Hızlı randevu ekleme veya başka bir işlem
+                    Alert.alert('Bilgi', 'Hızlı randevu ekleme özelliği yakında gelecek.');
+                }}
             />
-
-            {loading ? (
-                <View style={styles.center}>
-                    <ActivityIndicator animating={true} color={Colors.dark.primary} size="large" />
-                </View>
-            ) : (
-                <View style={[styles.content, isTablet ? styles.tabletContent : styles.mobileContent]}>
-                    {renderPitchColumn('barnebau', 'BARNEBAU')}
-                    {renderPitchColumn('noucamp', 'NOUCAMP')}
-                </View>
-            )}
-        </SafeAreaView>
+        </ThemedContainer>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.dark.background,
     },
-    header: {
-        padding: 20,
+    headerContainer: {
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.1)',
+        paddingBottom: 10,
+    },
+    bannerArea: {
+        width: '100%',
+        height: 120, // Banner yüksekliği
+        backgroundColor: '#fff', // Banner beyaz zeminde olduğu için
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    bannerImage: {
+        width: '90%',
+        height: '100%',
+    },
+    controlsArea: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: Colors.dark.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.dark.cardBorder,
-    },
-    headerLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    logoIcon: {
-        margin: 0,
-        marginRight: 8,
+        paddingHorizontal: 20,
+        marginTop: 10,
     },
     title: {
-        color: Colors.dark.primary,
-        fontWeight: '900',
-        letterSpacing: 2,
+        fontWeight: 'bold',
     },
     subtitle: {
-        color: Colors.dark.textSecondary,
-        fontWeight: '600',
-        fontSize: 12,
-        marginTop: -4,
+        color: 'gray', // theme['color-text-secondary'], - style sheet içinde statik olmalı veya inline
+        fontSize: 14,
     },
     content: {
         flex: 1,
@@ -546,13 +648,11 @@ const styles = StyleSheet.create({
     },
     fieldColumn: {
         flex: 1,
-        backgroundColor: 'rgba(255,255,255,0.05)',
         borderRadius: 20,
         padding: 15,
         marginBottom: 10,
         marginHorizontal: 5,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
     },
     pitchHeader: {
         flexDirection: 'row',
@@ -561,7 +661,6 @@ const styles = StyleSheet.create({
         marginBottom: 15,
     },
     fieldTitle: {
-        color: Colors.dark.textPrimary,
         fontWeight: 'bold',
     },
     pitchStatusBadge: {
@@ -571,26 +670,22 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
     statusText: {
-        color: Colors.dark.primary,
         fontSize: 12,
         fontWeight: 'bold',
     },
     slotCard: {
         marginBottom: 8,
         borderRadius: 12,
-        backgroundColor: Colors.dark.surface,
         overflow: 'hidden',
+        borderWidth: 1,
+        elevation: 2,
     },
     availableCard: {
-        borderWidth: 1,
-        borderColor: 'rgba(0, 230, 118, 0.1)',
+        opacity: 0.9,
     },
     bookedCard: {
-        backgroundColor: 'rgba(255, 68, 68, 0.15)',
         borderWidth: 1,
-        borderColor: 'rgba(255, 68, 68, 0.3)',
         borderLeftWidth: 5,
-        borderLeftColor: '#ff4444',
     },
     slotContent: {
         flexDirection: 'row',
@@ -604,22 +699,19 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     timeText: {
-        color: Colors.dark.textPrimary,
         fontSize: 14,
         fontWeight: 'bold',
     },
     customerText: {
-        color: Colors.dark.textSecondary,
         fontSize: 12,
     },
     aboneBadge: {
-        backgroundColor: Colors.dark.primary,
-        color: '#000',
         fontSize: 9,
         fontWeight: 'bold',
         paddingHorizontal: 4,
         paddingVertical: 1,
         borderRadius: 4,
+        overflow: 'hidden',
     },
     center: {
         flex: 1,
@@ -627,23 +719,18 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     modalContent: {
-        backgroundColor: Colors.dark.surface,
         padding: 24,
         margin: 20,
         borderRadius: 16,
-        borderWidth: 1,
-        borderColor: Colors.dark.cardBorder,
+        // backgroundColor ve borderColor artık inline veriliyor
     },
     modalTitle: {
-        color: Colors.dark.primary,
         fontWeight: 'bold',
     },
     modalSubtitle: {
-        color: Colors.dark.textSecondary,
         marginBottom: 20,
     },
     input: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
         marginBottom: 12,
     },
     checkboxRow: {
@@ -653,7 +740,7 @@ const styles = StyleSheet.create({
     },
     divider: {
         marginVertical: 15,
-        backgroundColor: Colors.dark.cardBorder,
+        height: 1,
     },
     modalActions: {
         flexDirection: 'row',
@@ -673,20 +760,16 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 15,
         borderRadius: 12,
-        backgroundColor: 'rgba(255,255,255,0.05)',
         alignItems: 'center',
     },
     statLabel: {
-        color: Colors.dark.textSecondary,
         fontSize: 12,
     },
     statValue: {
-        color: Colors.dark.primary,
         fontSize: 24,
         fontWeight: 'bold',
     },
     sectionTitle: {
-        color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
         marginBottom: 10,
@@ -700,32 +783,41 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingVertical: 10,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
     },
     aboneName: {
-        color: '#fff',
     },
     aboneCount: {
-        color: Colors.dark.primary,
         fontWeight: 'bold',
     },
     settingsCard: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
         borderRadius: 12,
     },
     settingRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 16,
     },
     settingTitle: {
-        color: '#fff',
-        fontSize: 14,
+        fontSize: 16,
         fontWeight: 'bold',
     },
     settingDesc: {
-        color: Colors.dark.textSecondary,
         fontSize: 12,
-    }
+        marginTop: 2,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+    },
+    fab: {
+        position: 'absolute',
+        margin: 16,
+        right: 0,
+        bottom: 0,
+    },
 });

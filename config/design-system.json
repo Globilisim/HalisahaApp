@@ -1,0 +1,119 @@
+{
+    "project": "HaliSahaApp",
+    "version": "1.0",
+    "type": "web-design-system",
+    "architecture": {
+        "themeMethod": "css-variables",
+        "themeSwitchAttribute": "data-theme",
+        "responsive": true,
+        "darkModeSupport": true
+    },
+    "themes": {
+        "light": {
+            "color-bg": "#FFFFFF",
+            "color-surface": "#F5F5F5",
+            "color-card": "#FFFFFF",
+            "color-primary": "#2E7D32",
+            "color-primary-hover": "#1B5E20",
+            "color-text-primary": "#111111",
+            "color-text-secondary": "#666666",
+            "color-border": "#E0E0E0",
+            "color-success": "#2E7D32",
+            "color-danger": "#D32F2F",
+            "color-warning": "#F9A825"
+        },
+        "dark": {
+            "color-bg": "#121212",
+            "color-surface": "#1E1E1E",
+            "color-card": "#1C1C1C",
+            "color-primary": "#66BB6A",
+            "color-primary-hover": "#81C784",
+            "color-text-primary": "#FFFFFF",
+            "color-text-secondary": "#B0B0B0",
+            "color-border": "#2C2C2C",
+            "color-success": "#4CAF50",
+            "color-danger": "#EF5350",
+            "color-warning": "#FFCA28"
+        }
+    },
+    "spacing": {
+        "scale": [
+            4,
+            8,
+            12,
+            16,
+            24,
+            32,
+            40,
+            48,
+            64
+        ],
+        "cardPadding": 16,
+        "sectionSpacing": 24,
+        "pagePadding": 32
+    },
+    "borderRadius": {
+        "small": 8,
+        "medium": 12,
+        "large": 16
+    },
+    "typography": {
+        "fontFamily": "Inter, system-ui, sans-serif",
+        "scale": {
+            "pageTitle": {
+                "size": 24,
+                "weight": 600
+            },
+            "sectionTitle": {
+                "size": 18,
+                "weight": 600
+            },
+            "cardTitle": {
+                "size": 16,
+                "weight": 600
+            },
+            "body": {
+                "size": 14,
+                "weight": 400
+            },
+            "small": {
+                "size": 12,
+                "weight": 400
+            }
+        }
+    },
+    "components": {
+        "button": {
+            "height": 40,
+            "radius": 8,
+            "variants": [
+                "primary",
+                "secondary",
+                "danger",
+                "ghost"
+            ]
+        },
+        "card": {
+            "padding": 16,
+            "radius": 12,
+            "border": true
+        },
+        "input": {
+            "height": 40,
+            "radius": 8,
+            "border": true,
+            "focusColor": "color-primary"
+        },
+        "table": {
+            "hoverOpacity": 0.05
+        }
+    },
+    "darkModeBehavior": {
+        "priority": [
+            "localStorage",
+            "systemPreference",
+            "defaultLight"
+        ],
+        "transition": "200ms ease"
+    }
+}
