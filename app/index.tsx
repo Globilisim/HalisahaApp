@@ -280,20 +280,42 @@ export default function DashboardHome() {
             return;
         }
 
+        // Dinamik Mesaj Oluştur
+        let message = "Bu randevuyu silmek istediğinize emin misiniz?";
+        const warnings: string[] = [];
+
+        if (editingAppointment.deposit && parseInt(editingAppointment.deposit) > 0) {
+            warnings.push(`⚠️ BU RANDEVU İÇİN ${editingAppointment.deposit} TL KAPORA ALINMIŞ.`);
+        }
+
+        if (editingAppointment.isSubscription) {
+            warnings.push("⭐ BU BİR ABONELİK RANDEVUSUDUR. Sadece bu haftalık silinecektir.");
+        }
+
+        if (warnings.length > 0) {
+            message = `${warnings.join('\n\n')}\n\nDevam etmek istiyor musunuz?`;
+        }
+
         customAlert(
             "Randevu Sil",
-            "Bu randevuyu silmek istediğinize emin misiniz?",
+            message,
             async () => {
                 setIsSaving(true);
                 try {
-                    await NotificationService.cancelAllForAppointment(editingAppointment.id!);
+                    // Önce bildirimleri iptal etmeyi dene ama hata verirse logla ve devam et
+                    try {
+                        await NotificationService.cancelAllForAppointment(editingAppointment.id!);
+                    } catch (nErr) {
+                        console.error("Bildirim iptal hatası (devam ediliyor):", nErr);
+                    }
+
                     await firebaseService.deleteAppointment(editingAppointment.id!);
                     setModalVisible(false);
                     fetchAppointments();
-                    showToast('Randevu silindi.', 'success');
+                    showToast('Randevu başarıyla silindi.', 'success');
                 } catch (error) {
                     console.error("Silme hatası:", error);
-                    showToast('Randevu silinirken bir sorun oluştu.', 'error');
+                    showToast('Randevu veritabanından silinemedi. Lütfen internetinizi kontrol edin.', 'error');
                 } finally {
                     setIsSaving(false);
                 }
