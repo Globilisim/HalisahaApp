@@ -6,6 +6,7 @@ import { ThemedText } from '../components/ThemedText';
 import { useTheme } from '../config/ThemeContext';
 import { firebaseService, Customer } from '../services/firebaseService';
 import { useToast } from '../config/ToastContext';
+import { useLocalSearchParams } from 'expo-router';
 
 const customAlert = (title: string, message: string, onConfirm: () => void) => {
     if (Platform.OS === 'web') {
@@ -33,9 +34,15 @@ export default function CustomersPage() {
     const [customerPhone, setCustomerPhone] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
+    const { action } = useLocalSearchParams();
+
     useEffect(() => {
-        fetchCustomers();
-    }, []);
+        fetchCustomers().then(() => {
+            if (action === 'add') {
+                handleOpenModal();
+            }
+        });
+    }, [action]);
 
     const fetchCustomers = async () => {
         setLoading(true);

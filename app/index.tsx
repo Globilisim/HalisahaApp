@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, StyleSheet, useWindowDimensions, ScrollView, TouchableOpacity, Dimensions, Linking, Image, Alert, Platform } from 'react-native';
 import { Audio } from 'expo-av';
-import { Text, Card, IconButton, Portal, Modal, TextInput, Button, Checkbox, Divider, Surface, ActivityIndicator, FAB } from 'react-native-paper';
+import { Text, Card, IconButton, Portal, Modal, TextInput, Button, Checkbox, Divider, Surface, ActivityIndicator, FAB, SegmentedButtons } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DatePickerModal } from 'react-native-paper-dates';
 // import { PieChart } from 'react-native-chart-kit'; // Disabled for web compatibility
@@ -179,7 +179,7 @@ export default function DashboardHome() {
         }
     ];
 
-    const handleOpenModal = (pitchId: 'barnebau' | 'noucamp', timeSlot: string, app?: Appointment) => {
+    const handleOpenModal = (pitchId: 'barnebau' | 'noucamp', timeSlot: string, app?: Appointment | null) => {
         setSelectedSlot({ pitchId, timeSlot });
         if (app) {
             setEditingAppointment(app);
@@ -351,9 +351,44 @@ export default function DashboardHome() {
                         <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme['color-text-primary'] }]}>
                             {editingAppointment ? 'Randevu Düzenle' : 'Yeni Randevu'}
                         </Text>
-                        <Text style={[styles.modalSubtitle, { color: theme['color-text-secondary'] }]}>
-                            {selectedSlot?.pitchId.toUpperCase()} • {selectedSlot?.timeSlot?.replace('.', ':')}
+                        <Text style={[styles.modalSubtitle, { color: theme['color-text-secondary'], marginBottom: 15 }]}>
+                            Randevu Bilgileri
                         </Text>
+
+                        {!editingAppointment && (
+                            <View style={{ marginBottom: 15 }}>
+                                <Text style={{ color: theme['color-text-secondary'], fontSize: 12, marginBottom: 5 }}>Saha Seçimi</Text>
+                                <SegmentedButtons
+                                    value={selectedSlot?.pitchId || 'barnebau'}
+                                    onValueChange={(val) => setSelectedSlot(prev => prev ? { ...prev, pitchId: val as any } : { pitchId: val as any, timeSlot: '14.00' })}
+                                    buttons={[
+                                        { value: 'barnebau', label: 'Barnebau' },
+                                        { value: 'noucamp', label: 'Nou Camp' },
+                                    ]}
+                                    theme={{ colors: { secondaryContainer: theme['color-primary'] + '20' } }}
+                                />
+
+                                <Text style={{ color: theme['color-text-secondary'], fontSize: 12, marginTop: 15, marginBottom: 5 }}>Saat Seçimi</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
+                                    {[14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0].map(hour => {
+                                        const time = `${hour < 10 ? '0' + hour : hour}.00`;
+                                        const isSelected = selectedSlot?.timeSlot === time;
+                                        return (
+                                            <Button
+                                                key={hour}
+                                                mode={isSelected ? 'contained' : 'outlined'}
+                                                onPress={() => setSelectedSlot(prev => prev ? { ...prev, timeSlot: time } : { pitchId: 'barnebau', timeSlot: time })}
+                                                style={{ marginRight: 8 }}
+                                                compact
+                                            >
+                                                {time}
+                                            </Button>
+                                        );
+                                    })}
+                                </ScrollView>
+                                <Divider style={{ marginVertical: 15 }} />
+                            </View>
+                        )}
 
                         <TextInput label="Müşteri Adı" value={customerName} onChangeText={setCustomerName} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} />
                         <TextInput label="Telefon Numarası" value={phoneNumber} onChangeText={setPhoneNumber} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} keyboardType="phone-pad" />
@@ -635,7 +670,7 @@ export default function DashboardHome() {
                         {
                             icon: 'account-plus',
                             label: 'Yeni Müşteri',
-                            onPress: () => router.push('/customers'),
+                            onPress: () => router.push('/customers?action=add'),
                         },
                         {
                             icon: 'chart-bar',
