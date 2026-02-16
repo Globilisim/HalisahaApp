@@ -414,12 +414,12 @@ export default function SubscriptionsPage() {
                                 {sub ? (
                                     <View>
                                         <ThemedText style={styles.subName}>{sub.customerName}</ThemedText>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                                        <View style={{ marginTop: 2 }}>
                                             <ThemedText variant="caption">{sub.customerPhone}</ThemedText>
                                             {sub.depositAmount && parseInt(sub.depositAmount) > 0 && (
-                                                <View style={{ backgroundColor: theme['color-primary'] + '20', paddingHorizontal: 4, borderRadius: 4 }}>
-                                                    <ThemedText style={{ fontSize: 10, color: theme['color-primary'], fontWeight: 'bold' }}>
-                                                        {sub.depositAmount} TL Güvence
+                                                <View style={{ backgroundColor: theme['color-primary'] + '15', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4, alignSelf: 'flex-start', marginTop: 2 }}>
+                                                    <ThemedText style={{ fontSize: 9, color: theme['color-primary'], fontWeight: 'bold' }}>
+                                                        🛡️ {sub.depositAmount} TL GÜVENCE
                                                     </ThemedText>
                                                 </View>
                                             )}

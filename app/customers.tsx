@@ -208,12 +208,12 @@ export default function CustomersPage() {
                                                 />
                                             )}
                                         </View>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        <View style={{ marginTop: 2 }}>
                                             <ThemedText variant="caption">{customer.phone}</ThemedText>
                                             {customer.depositAmount && parseInt(customer.depositAmount) > 0 && (
-                                                <View style={{ backgroundColor: theme['color-primary'] + '20', paddingHorizontal: 6, borderRadius: 6 }}>
-                                                    <ThemedText style={{ fontSize: 10, color: theme['color-primary'], fontWeight: 'bold' }}>
-                                                        {customer.depositAmount} TL Güvence
+                                                <View style={{ backgroundColor: theme['color-primary'] + '15', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, alignSelf: 'flex-start', marginTop: 2 }}>
+                                                    <ThemedText style={{ fontSize: 9, color: theme['color-primary'], fontWeight: 'bold' }}>
+                                                        🛡️ {customer.depositAmount} TL GÜVENCE
                                                     </ThemedText>
                                                 </View>
                                             )}
