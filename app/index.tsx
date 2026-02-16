@@ -373,12 +373,24 @@ export default function DashboardHome() {
                                     {[14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0].map(hour => {
                                         const time = `${hour < 10 ? '0' + hour : hour}.00`;
                                         const isSelected = selectedSlot?.timeSlot === time;
+
+                                        // Bu saatin dolu olup olmadığını kontrol et
+                                        const isBooked = appointments.some(app =>
+                                            app.pitchId === selectedSlot?.pitchId &&
+                                            app.timeSlot === time
+                                        );
+
                                         return (
                                             <Button
                                                 key={hour}
                                                 mode={isSelected ? 'contained' : 'outlined'}
                                                 onPress={() => setSelectedSlot(prev => prev ? { ...prev, timeSlot: time } : { pitchId: 'barnebau', timeSlot: time })}
-                                                style={{ marginRight: 8 }}
+                                                style={[
+                                                    { marginRight: 8 },
+                                                    isBooked && !isSelected && { borderColor: theme['color-danger'] }
+                                                ]}
+                                                textColor={isBooked && !isSelected ? theme['color-danger'] : undefined}
+                                                buttonColor={isSelected ? (isBooked ? theme['color-danger'] : theme['color-primary']) : undefined}
                                                 compact
                                             >
                                                 {time}
