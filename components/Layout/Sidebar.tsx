@@ -49,7 +49,11 @@ export const Sidebar = ({ visible, onDismiss, mode }: SidebarProps) => {
             elevation={1}
         >
             {/* Logo Area */}
-            <View style={[styles.header, { height: 80 }]}>
+            <TouchableOpacity
+                style={[styles.header, { height: 80 }]}
+                onPress={() => handlePress('/')}
+                activeOpacity={0.7}
+            >
                 {isCollapsed ? (
                     <IconButton icon="soccer" iconColor={theme['color-primary']} size={32} />
                 ) : (
@@ -58,7 +62,7 @@ export const Sidebar = ({ visible, onDismiss, mode }: SidebarProps) => {
                         <ThemedText variant="h2" style={{ color: theme['color-primary'], marginLeft: 8 }}>SportCity</ThemedText>
                     </View>
                 )}
-            </View>
+            </TouchableOpacity>
 
             <Divider style={{ backgroundColor: theme['color-border'] }} />
 
