@@ -129,8 +129,12 @@ export const NotificationService = {
                     break;
             }
 
-            const { sound } = await Audio.Sound.createAsync(soundFile);
-            await sound.setVolumeAsync(volume);
+            // Web'de ses çalmak için kullanıcı etkileşimi şarttır, bu fonksiyon zaten buton onPress ile çağrılıyor.
+            const { sound } = await Audio.Sound.createAsync(
+                soundFile,
+                { shouldPlay: true, volume: volume }
+            );
+
             await sound.playAsync();
 
             sound.setOnPlaybackStatusUpdate(async (status) => {
@@ -139,7 +143,7 @@ export const NotificationService = {
                 }
             });
         } catch (error) {
-            console.log('Ses çalma hatası:', error);
+            console.error('Ses çalma hatası:', error);
         }
     },
 

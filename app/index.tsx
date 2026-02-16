@@ -20,6 +20,18 @@ import { useTheme } from '../config/ThemeContext';
 import { useToast } from '../config/ToastContext';
 import { useRouter } from 'expo-router';
 
+const customAlert = (title: string, message: string, onConfirm: () => void) => {
+    if (Platform.OS === 'web') {
+        const confirmed = window.confirm(`${title}\n\n${message}`);
+        if (confirmed) onConfirm();
+    } else {
+        Alert.alert(title, message, [
+            { text: 'Vazgeç', style: 'cancel' },
+            { text: 'Evet', style: 'destructive', onPress: onConfirm }
+        ]);
+    }
+};
+
 export default function DashboardHome() {
     const router = useRouter();
     const { width } = useWindowDimensions();
@@ -239,36 +251,28 @@ export default function DashboardHome() {
             return;
         }
 
-        Alert.alert(
+        customAlert(
             "Randevu Sil",
             "Bu randevuyu silmek istediğinize emin misiniz?",
-            [
-                { text: "Vazgeç", style: "cancel" },
-                {
-                    text: "Sil",
-                    style: "destructive",
-                    onPress: async () => {
-                        setIsSaving(true);
-                        try {
-                            await NotificationService.cancelAllForAppointment(editingAppointment.id!);
-                            await firebaseService.deleteAppointment(editingAppointment.id!);
-                            setModalVisible(false);
-                            fetchAppointments();
-                            showToast('Randevu silindi.', 'success');
-                        } catch (error) {
-                            console.error("Silme hatası:", error);
-                            showToast('Randevu silinirken bir sorun oluştu.', 'error');
-                        } finally {
-                            setIsSaving(false);
-                        }
-                    }
+            async () => {
+                setIsSaving(true);
+                try {
+                    await NotificationService.cancelAllForAppointment(editingAppointment.id!);
+                    await firebaseService.deleteAppointment(editingAppointment.id!);
+                    setModalVisible(false);
+                    fetchAppointments();
+                    showToast('Randevu silindi.', 'success');
+                } catch (error) {
+                    console.error("Silme hatası:", error);
+                    showToast('Randevu silinirken bir sorun oluştu.', 'error');
+                } finally {
+                    setIsSaving(false);
                 }
-            ]
+            }
         );
     };
 
     const playSound = async (type: 'start' | 'warning' | 'end') => {
-        if (Platform.OS === 'web') return;
         await NotificationService.playSound(type, buzzerSettings.volume);
     };
 

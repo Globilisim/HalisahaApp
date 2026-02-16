@@ -1,11 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Linking, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Linking, Alert, Platform } from 'react-native';
 import { Card, IconButton, Searchbar, FAB, Portal, Modal, TextInput, Button, Divider, ActivityIndicator } from 'react-native-paper';
 import { MainLayout } from '../components/Layout/MainLayout';
 import { ThemedText } from '../components/ThemedText';
 import { useTheme } from '../config/ThemeContext';
 import { firebaseService, Customer } from '../services/firebaseService';
 import { useToast } from '../config/ToastContext';
+
+const customAlert = (title: string, message: string, onConfirm: () => void) => {
+    if (Platform.OS === 'web') {
+        const confirmed = window.confirm(`${title}\n\n${message}`);
+        if (confirmed) onConfirm();
+    } else {
+        Alert.alert(title, message, [
+            { text: 'Vazgeç', style: 'cancel' },
+            { text: 'Sil', style: 'destructive', onPress: onConfirm }
+        ]);
+    }
+};
 
 export default function CustomersPage() {
     const { theme } = useTheme();
@@ -84,26 +96,19 @@ export default function CustomersPage() {
     const handleDeleteCustomer = (customer: Customer) => {
         if (!customer.id) return;
 
-        Alert.alert(
+        customAlert(
             "Müşteriyi Sil",
             `${customer.name} isimli müşteriyi silmek istediğinize emin misiniz?`,
-            [
-                { text: "Vazgeç", style: "cancel" },
-                {
-                    text: "Sil",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            await firebaseService.deleteCustomer(customer.id!);
-                            showToast('Müşteri silindi.', 'success');
-                            fetchCustomers();
-                        } catch (error) {
-                            console.error(error);
-                            showToast('Silme işlemi başarısız oldu.', 'error');
-                        }
-                    }
+            async () => {
+                try {
+                    await firebaseService.deleteCustomer(customer.id!);
+                    showToast('Müşteri silindi.', 'success');
+                    fetchCustomers();
+                } catch (error) {
+                    console.error(error);
+                    showToast('Silme işlemi başarısız oldu.', 'error');
                 }
-            ]
+            }
         );
     };
 
@@ -171,8 +176,8 @@ export default function CustomersPage() {
                                         <IconButton
                                             icon="delete"
                                             mode="contained"
-                                            containerColor={theme['color-error'] + '20'}
-                                            iconColor={theme['color-error']}
+                                            containerColor={theme['color-danger'] + '20'}
+                                            iconColor={theme['color-danger']}
                                             onPress={() => handleDeleteCustomer(customer)}
                                         />
                                     </View>
