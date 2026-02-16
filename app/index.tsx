@@ -543,35 +543,15 @@ export default function DashboardHome() {
 
                         <View style={{ marginTop: 20 }}>
                             <ThemedText variant="label" style={{ fontWeight: 'bold', marginBottom: 10, color: theme['color-text-primary'] }}>Tema</ThemedText>
-                            <View style={{ flexDirection: 'row', gap: 10 }}>
-                                <Button
-                                    mode={mode === 'auto' ? 'contained' : 'outlined'}
-                                    onPress={() => setMode('auto')}
-                                    style={{ flex: 1 }}
-                                    textColor={mode === 'auto' ? theme['color-bg'] : theme['color-text-primary']}
-                                    buttonColor={mode === 'auto' ? theme['color-primary'] : undefined}
-                                >
-                                    Otomatik
-                                </Button>
-                                <Button
-                                    mode={mode === 'dark' ? 'contained' : 'outlined'}
-                                    onPress={() => setMode('dark')}
-                                    style={{ flex: 1 }}
-                                    textColor={mode === 'dark' ? theme['color-bg'] : theme['color-text-primary']}
-                                    buttonColor={mode === 'dark' ? theme['color-primary'] : undefined}
-                                >
-                                    Koyu
-                                </Button>
-                                <Button
-                                    mode={mode === 'light' ? 'contained' : 'outlined'}
-                                    onPress={() => setMode('light')}
-                                    style={{ flex: 1 }}
-                                    textColor={mode === 'light' ? theme['color-bg'] : theme['color-text-primary']}
-                                    buttonColor={mode === 'light' ? theme['color-primary'] : undefined}
-                                >
-                                    Açık
-                                </Button>
-                            </View>
+                            <SegmentedButtons
+                                value={mode}
+                                onValueChange={v => setMode(v as any)}
+                                buttons={[
+                                    { value: 'auto', label: 'Otomatik', icon: 'brightness-auto' },
+                                    { value: 'dark', label: 'Koyu', icon: 'weather-night' },
+                                    { value: 'light', label: 'Açık', icon: 'weather-sunny' },
+                                ]}
+                            />
                         </View>
 
                         <View style={{ marginTop: 20 }}>

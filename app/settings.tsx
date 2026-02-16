@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { List, Switch, Divider, Button, Card } from 'react-native-paper';
+import { List, Switch, Divider, Button, Card, SegmentedButtons } from 'react-native-paper';
 import { MainLayout } from '../components/Layout/MainLayout';
 import { ThemedText } from '../components/ThemedText';
 import { useTheme } from '../config/ThemeContext';
@@ -45,16 +45,18 @@ export default function SettingsPage() {
             <ScrollView contentContainerStyle={styles.container}>
                 <Card style={[styles.card, { backgroundColor: theme['color-surface'], borderColor: theme['color-border'] }]}>
                     <List.Section titleStyle={{ color: theme['color-primary'], fontWeight: 'bold' }} title="Görünüm">
-                        <List.Item
-                            title="Karanlık Mod"
-                            right={() => (
-                                <Switch
-                                    value={mode === 'dark'}
-                                    onValueChange={(val) => setMode(val ? 'dark' : 'light')}
-                                    color={theme['color-primary']}
-                                />
-                            )}
-                        />
+                        <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+                            <ThemedText style={{ marginBottom: 12 }}>Uygulama Teması</ThemedText>
+                            <SegmentedButtons
+                                value={mode}
+                                onValueChange={v => setMode(v as any)}
+                                buttons={[
+                                    { value: 'auto', label: 'Otomatik', icon: 'brightness-auto' },
+                                    { value: 'dark', label: 'Koyu', icon: 'weather-night' },
+                                    { value: 'light', label: 'Açık', icon: 'weather-sunny' },
+                                ]}
+                            />
+                        </View>
                     </List.Section>
 
                     <Divider />
