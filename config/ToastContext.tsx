@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { Snackbar, Portal } from 'react-native-paper';
+import { Snackbar, Portal, Text as PaperText } from 'react-native-paper';
 import { useTheme } from '../config/ThemeContext';
 
 type ToastType = 'success' | 'error' | 'info' | 'warning';
@@ -56,7 +56,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         textColor: getTextColor(),
                     }}
                 >
-                    <span style={{ color: getTextColor() }}>{message}</span>
+                    <PaperText style={{ color: getTextColor() }}>{message}</PaperText>
                 </Snackbar>
             </Portal>
         </ToastContext.Provider>

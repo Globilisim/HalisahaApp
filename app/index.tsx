@@ -17,10 +17,12 @@ import { SkeletonLoader } from '../components/SkeletonLoader';
 import { MainLayout } from '../components/Layout/MainLayout';
 import { ThemedContainer } from '../components/ThemedContainer';
 import { useTheme } from '../config/ThemeContext';
+import { useToast } from '../config/ToastContext';
 
 export default function Dashboard() {
     const { width } = useWindowDimensions();
     const { theme, setMode, mode, isDark } = useTheme();
+    const { showToast } = useToast();
     const isMobile = width < 768;
     const isTablet = width >= 768 && width <= 1024;
     const isDesktop = width > 1024;
@@ -181,7 +183,10 @@ export default function Dashboard() {
     };
 
     const handleSave = async () => {
-        if (!customerName.trim()) return;
+        if (!customerName.trim()) {
+            showToast('Müşteri adı boş bırakılamaz.', 'warning');
+            return;
+        }
         setIsSaving(true);
         try {
             const day = String(selectedDate.getDate()).padStart(2, '0');
@@ -217,6 +222,7 @@ export default function Dashboard() {
 
             setModalVisible(false);
             fetchAppointments();
+            showToast(editingAppointment ? 'Randevu güncellendi.' : 'Randevu kaydedildi.', 'success');
         } catch (error) {
             console.error("Kaydetme hatası:", error);
         } finally {
@@ -245,9 +251,10 @@ export default function Dashboard() {
                             await firebaseService.deleteAppointment(editingAppointment.id!);
                             setModalVisible(false);
                             fetchAppointments();
+                            showToast('Randevu silindi.', 'success');
                         } catch (error) {
                             console.error("Silme hatası:", error);
-                            Alert.alert("Hata", "Randevu silinirken bir sorun oluştu.");
+                            showToast('Randevu silinirken bir sorun oluştu.', 'error');
                         } finally {
                             setIsSaving(false);
                         }
@@ -635,7 +642,7 @@ export default function Dashboard() {
                 color={theme['color-bg']}
                 onPress={() => {
                     // Hızlı randevu ekleme veya başka bir işlem
-                    Alert.alert('Bilgi', 'Hızlı randevu ekleme özelliği yakında gelecek.');
+                    showToast('Hızlı randevu ekleme özelliği yakında gelecek.', 'info');
                 }}
             />
         </MainLayout>
@@ -696,7 +703,7 @@ const styles = StyleSheet.create({
     },
     fieldColumn: {
         flex: 1,
-        borderRadius: 20,
+        borderRadius: 16, // Fixed value for now or use radius.large
         padding: 15,
         marginBottom: 10,
         marginHorizontal: 5,
