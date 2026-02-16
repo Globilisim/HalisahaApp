@@ -295,10 +295,18 @@ export default function DashboardHome() {
             }
 
             setModalVisible(false);
-            fetchAppointments();
+            await fetchAppointments();
+
+            // Eğer analiz modalı açıksa, verileri yenile
+            if (analysisVisible) {
+                await fetchAnalysisData();
+            }
+
             showToast(editingAppointment ? 'Randevu güncellendi.' : 'Randevu kaydedildi.', 'success');
         } catch (error) {
             console.error("Kaydetme hatası:", error);
+            showToast('Randevu kaydedilemedi. Lütfen tekrar deneyin.', 'error');
+            setModalVisible(false); // Hata durumunda da modalı kapat
         } finally {
             setIsSaving(false);
         }
