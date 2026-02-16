@@ -18,11 +18,14 @@ import { MainLayout } from '../components/Layout/MainLayout';
 import { ThemedContainer } from '../components/ThemedContainer';
 import { useTheme } from '../config/ThemeContext';
 import { useToast } from '../config/ToastContext';
+import { useRouter } from 'expo-router';
 
 export default function DashboardHome() {
+    const router = useRouter();
     const { width } = useWindowDimensions();
     const { theme, setMode, mode, isDark } = useTheme();
     const { showToast } = useToast();
+    const [fabOpen, setFabOpen] = useState(false);
     const isMobile = width < 768;
     const isTablet = width >= 768 && width <= 1024;
     const isDesktop = width > 1024;
@@ -611,15 +614,41 @@ export default function DashboardHome() {
                     )}
                 </ScrollView>
             </SafeAreaView>
-            <FAB
-                icon="plus"
-                style={[styles.fab, { backgroundColor: theme['color-primary'] }]}
-                color={theme['color-bg']}
-                onPress={() => {
-                    // Hızlı randevu ekleme veya başka bir işlem
-                    showToast('Hızlı randevu ekleme özelliği yakında gelecek.', 'info');
-                }}
-            />
+            {/* SPEED DIAL FAB */}
+            <Portal>
+                <FAB.Group
+                    open={fabOpen}
+                    visible
+                    icon={fabOpen ? 'close' : 'plus'}
+                    actions={[
+                        {
+                            icon: 'calendar-plus',
+                            label: 'Randevu Ekle',
+                            onPress: () => {
+                                handleOpenModal('barnebau', `${new Date().getHours()}.00`, undefined);
+                            },
+                        },
+                        {
+                            icon: 'account-plus',
+                            label: 'Yeni Müşteri',
+                            onPress: () => router.push('/customers'),
+                        },
+                        {
+                            icon: 'chart-bar',
+                            label: 'Raporlar',
+                            onPress: () => router.push('/reports'),
+                        },
+                        {
+                            icon: 'view-dashboard',
+                            label: 'Dashboard',
+                            onPress: () => router.push('/'),
+                        },
+                    ]}
+                    onStateChange={({ open }) => setFabOpen(open)}
+                    fabStyle={[styles.fab, { backgroundColor: theme['color-primary'] }]}
+                    theme={{ colors: { primaryContainer: theme['color-primary'] } }}
+                />
+            </Portal>
         </MainLayout>
     );
 }

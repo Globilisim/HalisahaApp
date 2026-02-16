@@ -14,7 +14,16 @@ export interface Appointment {
     createdAt: any;
 }
 
+export interface Customer {
+    id?: string;
+    name: string;
+    phone: string;
+    note?: string;
+    createdAt: any;
+}
+
 const APPOINTMENTS_COLLECTION = 'appointments';
+const CUSTOMERS_COLLECTION = 'customers';
 
 export const firebaseService = {
     // Belirli bir tarih dizisi (dd.mm.yy) için randevuları getir
@@ -102,6 +111,60 @@ export const firebaseService = {
             })) as Appointment[];
         } catch (error) {
             console.error("Analiz verileri çekilirken hata oluştu:", error);
+            throw error;
+        }
+    },
+
+    // --- MÜŞTERİ YÖNETİMİ ---
+
+    // Tüm müşterileri getir
+    getCustomers: async () => {
+        try {
+            const customersRef = collection(db, CUSTOMERS_COLLECTION);
+            const querySnapshot = await getDocs(customersRef);
+            return querySnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            })) as Customer[];
+        } catch (error) {
+            console.error("Müşteriler çekilirken hata oluştu:", error);
+            throw error;
+        }
+    },
+
+    // Yeni müşteri ekle
+    addCustomer: async (customer: Omit<Customer, 'id' | 'createdAt'>) => {
+        try {
+            const customersRef = collection(db, CUSTOMERS_COLLECTION);
+            const docRef = await addDoc(customersRef, {
+                ...customer,
+                createdAt: new Date()
+            });
+            return docRef.id;
+        } catch (error) {
+            console.error("Müşteri eklenirken hata oluştu:", error);
+            throw error;
+        }
+    },
+
+    // Müşteri güncelle
+    updateCustomer: async (id: string, data: Partial<Customer>) => {
+        try {
+            const customerRef = doc(db, CUSTOMERS_COLLECTION, id);
+            await updateDoc(customerRef, data);
+        } catch (error) {
+            console.error("Müşteri güncellenirken hata oluştu:", error);
+            throw error;
+        }
+    },
+
+    // Müşteri sil
+    deleteCustomer: async (id: string) => {
+        try {
+            const customerRef = doc(db, CUSTOMERS_COLLECTION, id);
+            await deleteDoc(customerRef);
+        } catch (error) {
+            console.error("Müşteri silinirken hata oluştu:", error);
             throw error;
         }
     }
