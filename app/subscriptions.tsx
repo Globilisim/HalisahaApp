@@ -563,7 +563,10 @@ export default function SubscriptionsPage() {
                                         title={customer.name}
                                         description={customer.phone}
                                         left={props => <List.Icon {...props} icon="account" />}
-                                        onPress={() => handleAddSubscription(customer)}
+                                        onPress={() => {
+                                            setDepositAmount(customer.depositAmount || '');
+                                            handleAddSubscription(customer);
+                                        }}
                                     />
                                 ))
                             ) : (

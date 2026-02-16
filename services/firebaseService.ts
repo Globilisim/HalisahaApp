@@ -20,6 +20,8 @@ export interface Customer {
     phone: string;
     note?: string;
     isSubscriber?: boolean;
+    depositAmount?: string;
+    depositDate?: any;
     createdAt: any;
 }export interface Subscription {
     id?: string;

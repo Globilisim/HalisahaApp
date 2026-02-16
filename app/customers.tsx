@@ -33,6 +33,7 @@ export default function CustomersPage() {
     const [customerName, setCustomerName] = useState('');
     const [customerPhone, setCustomerPhone] = useState('');
     const [isSubscriber, setIsSubscriber] = useState(false);
+    const [depositAmount, setDepositAmount] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
     const { action } = useLocalSearchParams();
@@ -64,10 +65,12 @@ export default function CustomersPage() {
             setCustomerName(customer.name);
             setCustomerPhone(customer.phone);
             setIsSubscriber(!!customer.isSubscriber);
+            setDepositAmount(customer.depositAmount || '');
         } else {
             setCustomerName('');
             setCustomerPhone('');
             setIsSubscriber(false);
+            setDepositAmount('');
         }
         setIsModalVisible(true);
     };
@@ -84,6 +87,8 @@ export default function CustomersPage() {
                 name: customerName.trim(),
                 phone: customerPhone.trim(),
                 isSubscriber: isSubscriber,
+                depositAmount: depositAmount,
+                depositDate: depositAmount !== editingCustomer?.depositAmount ? new Date() : (editingCustomer?.depositDate || null)
             };
 
             // Mükerrer Kayıt Kontrolü (Case-insensitive name and exact phone)
@@ -127,9 +132,15 @@ export default function CustomersPage() {
     const handleDeleteCustomer = (customer: Customer) => {
         if (!customer.id) return;
 
+        let msg = `${customer.name} isimli müşteriyi silmek istediğinize emin misiniz?`;
+
+        if (customer.depositAmount && parseInt(customer.depositAmount) > 0) {
+            msg = `⚠️ DİKKAT: Bu müşterinin ${customer.depositAmount} TL Güvence Kaporası bulunmaktadır. İade etmeyi unutmayınız!\n\n${msg}`;
+        }
+
         customAlert(
             "Müşteriyi Sil",
-            `${customer.name} isimli müşteriyi silmek istediğinize emin misiniz?`,
+            msg,
             async () => {
                 try {
                     await firebaseService.deleteCustomer(customer.id!);
@@ -197,7 +208,16 @@ export default function CustomersPage() {
                                                 />
                                             )}
                                         </View>
-                                        <ThemedText variant="caption">{customer.phone}</ThemedText>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                            <ThemedText variant="caption">{customer.phone}</ThemedText>
+                                            {customer.depositAmount && parseInt(customer.depositAmount) > 0 && (
+                                                <View style={{ backgroundColor: theme['color-primary'] + '20', paddingHorizontal: 6, borderRadius: 6 }}>
+                                                    <ThemedText style={{ fontSize: 10, color: theme['color-primary'], fontWeight: 'bold' }}>
+                                                        {customer.depositAmount} TL Güvence
+                                                    </ThemedText>
+                                                </View>
+                                            )}
+                                        </View>
                                     </View>
                                     <View style={styles.actions}>
                                         <IconButton
@@ -256,6 +276,27 @@ export default function CustomersPage() {
                         style={styles.input}
                         activeOutlineColor={theme['color-primary']}
                     />
+
+                    <TextInput
+                        label="Güvence Kaporası"
+                        value={depositAmount}
+                        onChangeText={setDepositAmount}
+                        mode="outlined"
+                        keyboardType="numeric"
+                        left={<TextInput.Affix text="₺" />}
+                        style={styles.input}
+                        activeOutlineColor={theme['color-primary']}
+                    />
+
+                    {editingCustomer?.depositDate && (
+                        <ThemedText style={{ fontSize: 11, opacity: 0.6, marginBottom: 15, marginTop: -10 }}>
+                            Kapora İşlem Tarihi: {
+                                editingCustomer.depositDate.seconds
+                                    ? new Date(editingCustomer.depositDate.seconds * 1000).toLocaleDateString('tr-TR')
+                                    : new Date(editingCustomer.depositDate).toLocaleDateString('tr-TR')
+                            }
+                        </ThemedText>
+                    )}
 
                     <TouchableOpacity
                         style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15, gap: 10 }}
