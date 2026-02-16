@@ -453,130 +453,132 @@ export default function DashboardHome() {
             <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
                 <Portal>
                     {/* Randevu Modalı - Mevcut kod korunuyor */}
-                    <Modal visible={modalVisible} onDismiss={() => setModalVisible(false)} contentContainerStyle={[styles.modalContent, { backgroundColor: theme['color-surface'], borderColor: theme['color-border'] }]}>
-                        <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme['color-text-primary'] }]}>
-                            {editingAppointment ? 'Randevu Düzenle' : 'Yeni Randevu'}
-                        </Text>
-                        <Text style={[styles.modalSubtitle, { color: theme['color-text-secondary'], marginBottom: 15 }]}>
-                            Randevu Bilgileri
-                        </Text>
+                    <Modal visible={modalVisible} onDismiss={() => setModalVisible(false)} contentContainerStyle={[styles.modalContent, { backgroundColor: theme['color-surface'], borderColor: theme['color-border'], maxHeight: '90%' }]}>
+                        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                            <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme['color-text-primary'] }]}>
+                                {editingAppointment ? 'Randevu Düzenle' : 'Yeni Randevu'}
+                            </Text>
+                            <Text style={[styles.modalSubtitle, { color: theme['color-text-secondary'], marginBottom: 15 }]}>
+                                Randevu Bilgileri
+                            </Text>
 
-                        {!editingAppointment && (
-                            <View style={{ marginBottom: 15 }}>
-                                <Text style={{ color: theme['color-text-secondary'], fontSize: 12, marginBottom: 5 }}>Saha Seçimi</Text>
-                                <SegmentedButtons
-                                    value={selectedSlot?.pitchId || 'barnebau'}
-                                    onValueChange={(val) => setSelectedSlot(prev => prev ? { ...prev, pitchId: val as any } : { pitchId: val as any, timeSlot: '14.00' })}
-                                    buttons={[
-                                        { value: 'barnebau', label: 'Barnebau' },
-                                        { value: 'noucamp', label: 'Nou Camp' },
-                                    ]}
-                                    theme={{ colors: { secondaryContainer: theme['color-primary'] + '20' } }}
-                                />
+                            {!editingAppointment && (
+                                <View style={{ marginBottom: 15 }}>
+                                    <Text style={{ color: theme['color-text-secondary'], fontSize: 12, marginBottom: 5 }}>Saha Seçimi</Text>
+                                    <SegmentedButtons
+                                        value={selectedSlot?.pitchId || 'barnebau'}
+                                        onValueChange={(val) => setSelectedSlot(prev => prev ? { ...prev, pitchId: val as any } : { pitchId: val as any, timeSlot: '14.00' })}
+                                        buttons={[
+                                            { value: 'barnebau', label: 'Barnebau' },
+                                            { value: 'noucamp', label: 'Nou Camp' },
+                                        ]}
+                                        theme={{ colors: { secondaryContainer: theme['color-primary'] + '20' } }}
+                                    />
 
-                                <Text style={{ color: theme['color-text-secondary'], fontSize: 12, marginTop: 15, marginBottom: 5 }}>Saat Seçimi</Text>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
-                                    {[14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0].map(hour => {
-                                        const time = `${hour < 10 ? '0' + hour : hour}.00`;
-                                        const isSelected = selectedSlot?.timeSlot === time;
+                                    <Text style={{ color: theme['color-text-secondary'], fontSize: 12, marginTop: 15, marginBottom: 5 }}>Saat Seçimi</Text>
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
+                                        {[14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0].map(hour => {
+                                            const time = `${hour < 10 ? '0' + hour : hour}.00`;
+                                            const isSelected = selectedSlot?.timeSlot === time;
 
-                                        // Bu saatin dolu olup olmadığını kontrol et
-                                        const isBooked = appointments.some(app =>
-                                            app.pitchId === selectedSlot?.pitchId &&
-                                            app.timeSlot === time
-                                        );
+                                            // Bu saatin dolu olup olmadığını kontrol et
+                                            const isBooked = appointments.some(app =>
+                                                app.pitchId === selectedSlot?.pitchId &&
+                                                app.timeSlot === time
+                                            );
 
-                                        return (
-                                            <Button
-                                                key={hour}
-                                                mode={isSelected ? 'contained' : 'outlined'}
-                                                onPress={() => setSelectedSlot(prev => prev ? { ...prev, timeSlot: time } : { pitchId: 'barnebau', timeSlot: time })}
-                                                style={[
-                                                    { marginRight: 8 },
-                                                    isBooked && !isSelected && { borderColor: theme['color-danger'] }
-                                                ]}
-                                                textColor={isBooked && !isSelected ? theme['color-danger'] : undefined}
-                                                buttonColor={isSelected ? (isBooked ? theme['color-danger'] : theme['color-primary']) : undefined}
-                                                compact
-                                            >
-                                                {time}
-                                            </Button>
-                                        );
-                                    })}
-                                </ScrollView>
-                                <Divider style={{ marginVertical: 15 }} />
-                            </View>
-                        )}
+                                            return (
+                                                <Button
+                                                    key={hour}
+                                                    mode={isSelected ? 'contained' : 'outlined'}
+                                                    onPress={() => setSelectedSlot(prev => prev ? { ...prev, timeSlot: time } : { pitchId: 'barnebau', timeSlot: time })}
+                                                    style={[
+                                                        { marginRight: 8 },
+                                                        isBooked && !isSelected && { borderColor: theme['color-danger'] }
+                                                    ]}
+                                                    textColor={isBooked && !isSelected ? theme['color-danger'] : undefined}
+                                                    buttonColor={isSelected ? (isBooked ? theme['color-danger'] : theme['color-primary']) : undefined}
+                                                    compact
+                                                >
+                                                    {time}
+                                                </Button>
+                                            );
+                                        })}
+                                    </ScrollView>
+                                    <Divider style={{ marginVertical: 15 }} />
+                                </View>
+                            )}
 
-                        <TextInput label="Müşteri Adı" value={customerName} onChangeText={setCustomerName} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} />
-                        <TextInput label="Telefon Numarası" value={phoneNumber} onChangeText={setPhoneNumber} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} keyboardType="phone-pad" />
-                        <TextInput label="Kapora (TL)" value={deposit} onChangeText={setDeposit} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} keyboardType="numeric" />
+                            <TextInput label="Müşteri Adı" value={customerName} onChangeText={setCustomerName} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} />
+                            <TextInput label="Telefon Numarası" value={phoneNumber} onChangeText={setPhoneNumber} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} keyboardType="phone-pad" />
+                            <TextInput label="Kapora (TL)" value={deposit} onChangeText={setDeposit} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} keyboardType="numeric" />
 
-                        <Divider style={[styles.divider, { backgroundColor: theme['color-border'], marginVertical: 10 }]} />
-                        <ThemedText variant="label" style={{ marginBottom: 10, color: theme['color-text-primary'] }}>Maç Ücreti ve Ödeme</ThemedText>
+                            <Divider style={[styles.divider, { backgroundColor: theme['color-border'], marginVertical: 10 }]} />
+                            <ThemedText variant="label" style={{ marginBottom: 10, color: theme['color-text-primary'] }}>Maç Ücreti ve Ödeme</ThemedText>
 
-                        <TextInput label="Maç Ücreti (TL)" value={matchFee} onChangeText={setMatchFee} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} keyboardType="numeric" />
+                            <TextInput label="Maç Ücreti (TL)" value={matchFee} onChangeText={setMatchFee} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} keyboardType="numeric" />
 
-                        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
-                            <Button
-                                mode={paymentStatus === 'unpaid' ? 'contained' : 'outlined'}
-                                onPress={() => setPaymentStatus('unpaid')}
-                                style={{ flex: 1 }}
-                                buttonColor={paymentStatus === 'unpaid' ? '#DC2626' : undefined}
-                                textColor={paymentStatus === 'unpaid' ? '#fff' : theme['color-text-primary']}
-                            >
-                                🔴 Ödenmedi
-                            </Button>
-                            <Button
-                                mode={paymentStatus === 'paid' ? 'contained' : 'outlined'}
-                                onPress={() => setPaymentStatus('paid')}
-                                style={{ flex: 1 }}
-                                buttonColor={paymentStatus === 'paid' ? '#10B981' : undefined}
-                                textColor={paymentStatus === 'paid' ? '#fff' : theme['color-text-primary']}
-                            >
-                                🟢 Ödendi
-                            </Button>
-                        </View>
-
-                        {paymentStatus === 'partial' && (
-                            <TextInput label="Alınan Ödeme (TL)" value={receivedAmount} onChangeText={setReceivedAmount} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} keyboardType="numeric" />
-                        )}
-
-                        <View style={styles.checkboxRow}>
-                            <Checkbox status={isSubscription ? 'checked' : 'unchecked'} onPress={() => setIsSubscription(!isSubscription)} color={theme['color-primary']} />
-                            <ThemedText style={{ color: theme['color-text-primary'] }}>Abone Kaydı</ThemedText>
-                        </View>
-
-                        <Divider style={[styles.divider, { backgroundColor: theme['color-border'], marginVertical: 15 }]} />
-
-                        {editingAppointment && (
-                            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 15 }}>
+                            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
                                 <Button
-                                    mode="contained"
-                                    onPress={() => handleWhatsApp(phoneNumber, customerName)}
-                                    buttonColor="#25D366"
-                                    textColor="#fff"
-                                    icon="whatsapp"
-                                    style={{ flex: 1, borderRadius: 8 }}
+                                    mode={paymentStatus === 'unpaid' ? 'contained' : 'outlined'}
+                                    onPress={() => setPaymentStatus('unpaid')}
+                                    style={{ flex: 1 }}
+                                    buttonColor={paymentStatus === 'unpaid' ? '#DC2626' : undefined}
+                                    textColor={paymentStatus === 'unpaid' ? '#fff' : theme['color-text-primary']}
                                 >
-                                    WhatsApp
+                                    🔴 Ödenmedi
                                 </Button>
                                 <Button
-                                    mode="outlined"
-                                    onPress={handleDelete}
-                                    textColor={theme['color-danger']}
-                                    disabled={isSaving}
-                                    style={{ flex: 1, borderRadius: 8 }}
+                                    mode={paymentStatus === 'paid' ? 'contained' : 'outlined'}
+                                    onPress={() => setPaymentStatus('paid')}
+                                    style={{ flex: 1 }}
+                                    buttonColor={paymentStatus === 'paid' ? '#10B981' : undefined}
+                                    textColor={paymentStatus === 'paid' ? '#fff' : theme['color-text-primary']}
                                 >
-                                    Sil
+                                    🟢 Ödendi
                                 </Button>
                             </View>
-                        )}
 
-                        <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end' }}>
-                            <Button mode="text" onPress={() => setModalVisible(false)} textColor={theme['color-text-secondary']}>Vazgeç</Button>
-                            <Button mode="contained" onPress={handleSave} buttonColor={theme['color-primary']} textColor={theme['color-bg']} loading={isSaving}>Kaydet</Button>
-                        </View>
+                            {paymentStatus === 'partial' && (
+                                <TextInput label="Alınan Ödeme (TL)" value={receivedAmount} onChangeText={setReceivedAmount} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} keyboardType="numeric" />
+                            )}
+
+                            <View style={styles.checkboxRow}>
+                                <Checkbox status={isSubscription ? 'checked' : 'unchecked'} onPress={() => setIsSubscription(!isSubscription)} color={theme['color-primary']} />
+                                <ThemedText style={{ color: theme['color-text-primary'] }}>Abone Kaydı</ThemedText>
+                            </View>
+
+                            <Divider style={[styles.divider, { backgroundColor: theme['color-border'], marginVertical: 15 }]} />
+
+                            {editingAppointment && (
+                                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 15 }}>
+                                    <Button
+                                        mode="contained"
+                                        onPress={() => handleWhatsApp(phoneNumber, customerName)}
+                                        buttonColor="#25D366"
+                                        textColor="#fff"
+                                        icon="whatsapp"
+                                        style={{ flex: 1, borderRadius: 8 }}
+                                    >
+                                        WhatsApp
+                                    </Button>
+                                    <Button
+                                        mode="outlined"
+                                        onPress={handleDelete}
+                                        textColor={theme['color-danger']}
+                                        disabled={isSaving}
+                                        style={{ flex: 1, borderRadius: 8 }}
+                                    >
+                                        Sil
+                                    </Button>
+                                </View>
+                            )}
+
+                            <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end', paddingBottom: 20 }}>
+                                <Button mode="text" onPress={() => setModalVisible(false)} textColor={theme['color-text-secondary']}>Vazgeç</Button>
+                                <Button mode="contained" onPress={handleSave} buttonColor={theme['color-primary']} textColor={theme['color-bg']} loading={isSaving}>Kaydet</Button>
+                            </View>
+                        </ScrollView>
                     </Modal>
 
                     {/* Analiz Modalı */}
@@ -588,7 +590,24 @@ export default function DashboardHome() {
                             </View>
 
                             <View style={styles.statsGrid}>
-                                <TouchableOpacity onPress={() => setSubscriberListVisible(true)} activeOpacity={0.7}>
+                                <TouchableOpacity onPress={async () => {
+                                    console.log('Opening subscriber list...');
+                                    console.log('Current customers:', customers.length);
+                                    console.log('Subscribers:', customers.filter(c => c.isSubscriber).length);
+
+                                    // Eğer customers boşsa, tekrar yükle
+                                    if (customers.length === 0) {
+                                        try {
+                                            const customerData = await firebaseService.getCustomers();
+                                            setCustomers(customerData);
+                                            console.log('Customers reloaded:', customerData.length);
+                                        } catch (error) {
+                                            console.error('Error loading customers:', error);
+                                        }
+                                    }
+
+                                    setSubscriberListVisible(true);
+                                }} activeOpacity={0.7}>
                                     <Surface style={[styles.statCard, { backgroundColor: theme['color-surface'] }]} elevation={2}>
                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                                             <Text style={[styles.statLabel, { color: theme['color-text-secondary'] }]}>Kayıtlı Abone</Text>
