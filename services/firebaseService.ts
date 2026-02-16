@@ -24,13 +24,15 @@ export interface Customer {
 }export interface Subscription {
     id?: string;
     pitchId: 'barnebau' | 'noucamp';
-    dayOfWeek: number; // 0 (Sun) - 6 (Sat)
+    dayOfWeek?: number; // Legacy support
+    daysOfWeek: number[]; // [0-6]
     timeSlot: string;
     customerId: string;
     customerName: string;
     customerPhone: string;
     active: boolean;
-    month?: number; // 0-11 (Jan-Dec), undefined means General
+    month?: number; // Legacy support
+    months?: number[]; // [0-11]
 }
 
 const APPOINTMENTS_COLLECTION = 'appointments';

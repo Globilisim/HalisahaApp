@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Surface, IconButton, Button, Portal, Modal, List, Searchbar, SegmentedButtons, ActivityIndicator } from 'react-native-paper';
+import { Surface, IconButton, Button, Portal, Modal, List, Searchbar, SegmentedButtons, ActivityIndicator, Divider } from 'react-native-paper';
 import { MainLayout } from '../components/Layout/MainLayout';
 import { ThemedText } from '../components/ThemedText';
 import { useTheme } from '../config/ThemeContext';
@@ -58,13 +58,17 @@ export default function SubscriptionsPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [selectedPitch, setSelectedPitch] = useState<'barnebau' | 'noucamp'>('barnebau');
     const [selectedDay, setSelectedDay] = useState(new Date().getDay() || 1);
-    const [selectedMonth, setSelectedMonth] = useState(-1); // -1 = Genel
+    const [selectedMonth, setSelectedMonth] = useState(-1); // VIEW month (-1 = Genel)
 
     // Modal State
     const [isAddModalVisible, setIsAddModalVisible] = useState(false);
     const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+
+    // Multi-select State for NEW subscription
+    const [tempSelectedDays, setTempSelectedDays] = useState<number[]>([]);
+    const [tempSelectedMonths, setTempSelectedMonths] = useState<number[]>([]); // [] means General
 
     useEffect(() => {
         fetchData();
@@ -89,16 +93,44 @@ export default function SubscriptionsPage() {
     const handleAddSubscription = async (customer: Customer) => {
         if (!selectedSlot) return;
         setIsSaving(true);
+
+        const daysToBook = tempSelectedDays.length > 0 ? tempSelectedDays : [selectedDay];
+        const monthsToBook = tempSelectedMonths.length > 0 ? tempSelectedMonths : (selectedMonth !== -1 ? [selectedMonth] : []);
+
+        // Çakışma Kontrolü
+        const conflict = subscriptions.find(s => {
+            if (s.pitchId !== selectedPitch || s.timeSlot !== selectedSlot || !s.active) return false;
+
+            // Gün kontrolü
+            const sDays = s.daysOfWeek || (s.dayOfWeek !== undefined ? [s.dayOfWeek] : []);
+            const dayOverlap = daysToBook.some(d => sDays.includes(d));
+            if (!dayOverlap) return false;
+
+            // Ay kontrolü
+            const sMonths = s.months || (s.month !== undefined && s.month !== -1 ? [s.month] : []);
+            const isSGeneral = sMonths.length === 0;
+            const isTargetGeneral = monthsToBook.length === 0;
+
+            if (isSGeneral || isTargetGeneral) return true; // Genel olan her şeyle çakışır
+            return monthsToBook.some(m => sMonths.includes(m));
+        });
+
+        if (conflict) {
+            showToast(`Çakışma: ${conflict.customerName} zaten bu saatte abone.`, 'error');
+            setIsSaving(false);
+            return;
+        }
+
         try {
             const newSub: Subscription = {
                 pitchId: selectedPitch,
-                dayOfWeek: selectedDay,
+                daysOfWeek: tempSelectedDays.length > 0 ? tempSelectedDays : [selectedDay],
                 timeSlot: selectedSlot,
                 customerId: customer.id!,
                 customerName: customer.name,
                 customerPhone: customer.phone,
                 active: true,
-                month: selectedMonth !== -1 ? selectedMonth : undefined
+                months: tempSelectedMonths.length > 0 ? tempSelectedMonths : (selectedMonth !== -1 ? [selectedMonth] : [])
             };
             await firebaseService.addSubscription(newSub);
             showToast('Abonelik başarıyla eklendi.', 'success');
@@ -127,12 +159,28 @@ export default function SubscriptionsPage() {
     );
 
     const getSlotSubscription = (time: string) => {
-        return subscriptions.find(s =>
-            s.pitchId === selectedPitch &&
-            s.dayOfWeek === selectedDay &&
-            s.timeSlot === time &&
-            (selectedMonth === -1 ? (!s.month || s.month === -1) : s.month === selectedMonth)
-        );
+        return subscriptions.find(s => {
+            const matchPitch = s.pitchId === selectedPitch;
+            const matchTime = s.timeSlot === time;
+
+            // Check day: Support both legacy dayOfWeek and new daysOfWeek array
+            const matchDay = s.daysOfWeek ? s.daysOfWeek.includes(selectedDay) : s.dayOfWeek === selectedDay;
+
+            // Check month: Support legacy month and new months array
+            let matchMonth = false;
+            if (selectedMonth === -1) {
+                // Viewing General: Match if s has no month/months or they are empty
+                matchMonth = (!s.months || s.months.length === 0) && (!s.month || s.month === -1);
+            } else {
+                // Viewing specific month: Match if s includes this month OR is General
+                const isGeneral = (!s.months || s.months.length === 0) && (!s.month || s.month === -1);
+                const inMonthsArr = s.months?.includes(selectedMonth);
+                const isLegacyMonth = s.month === selectedMonth;
+                matchMonth = isGeneral || inMonthsArr || isLegacyMonth;
+            }
+
+            return matchPitch && matchTime && matchDay && matchMonth;
+        });
     };
 
     if (loading) {
@@ -185,11 +233,12 @@ export default function SubscriptionsPage() {
                         const dateStr = `${targetDate.getDate().toString().padStart(2, '0')}.${(targetDate.getMonth() + 1).toString().padStart(2, '0')}.${targetDate.getFullYear().toString().slice(-2)}`;
 
                         // O güne ait aboneleri bul (Filtreleme: Genel aboneler + O aya özel aboneler)
-                        const daySubs = subscriptions.filter(s =>
-                            s.dayOfWeek === dayOfWeek &&
-                            s.active &&
-                            (!s.month || s.month === -1 || s.month === targetDate.getMonth())
-                        );
+                        const daySubs = subscriptions.filter(s => {
+                            const matchDay = s.daysOfWeek ? s.daysOfWeek.includes(dayOfWeek) : s.dayOfWeek === dayOfWeek;
+                            const isGeneral = (!s.months || s.months.length === 0) && (!s.month || s.month === -1);
+                            const matchMonth = isGeneral || (s.months && s.months.includes(targetDate.getMonth())) || s.month === targetDate.getMonth();
+                            return matchDay && matchMonth && s.active;
+                        });
 
                         if (daySubs.length > 0) {
                             const existingApps = await firebaseService.getAppointments(targetDate);
@@ -278,7 +327,11 @@ export default function SubscriptionsPage() {
                     <SegmentedButtons
                         value={selectedDay.toString()}
                         onValueChange={v => setSelectedDay(parseInt(v))}
-                        buttons={DAYS.map((d: any) => ({ value: d.value.toString(), label: d.label }))}
+                        buttons={DAYS.map((d: any) => ({
+                            value: d.value.toString(),
+                            label: d.label,
+                            showSelectedCheck: true
+                        }))}
                         style={styles.segmented}
                     />
                 </ScrollView>
@@ -324,6 +377,8 @@ export default function SubscriptionsPage() {
                                         mode="text"
                                         onPress={() => {
                                             setSelectedSlot(time);
+                                            setTempSelectedDays([selectedDay]);
+                                            setTempSelectedMonths(selectedMonth === -1 ? [] : [selectedMonth]);
                                             setIsAddModalVisible(true);
                                         }}
                                         compact
@@ -344,15 +399,64 @@ export default function SubscriptionsPage() {
                     contentContainerStyle={[styles.modal, { backgroundColor: theme['color-surface'] }]}
                 >
                     <ThemedText variant="h2" style={{ marginBottom: 10 }}>Abone Seçin</ThemedText>
-                    <ThemedText variant="caption" style={{ marginBottom: 20 }}>
-                        {DAYS.find((d: any) => d.value === selectedDay)?.label} {selectedSlot} saati için müşteri seçin.
+                    <ThemedText variant="caption" style={{ marginBottom: 10 }}>
+                        {selectedSlot} saati için abonelik detaylarını belirleyin.
                     </ThemedText>
 
+                    <Divider style={{ marginBottom: 15 }} />
+
+                    <ThemedText style={styles.label}>Günler (Çoklu Seçim)</ThemedText>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 15 }}>
+                        <View style={{ flexDirection: 'row', gap: 5 }}>
+                            {DAYS.map(d => {
+                                const isSel = tempSelectedDays.includes(d.value);
+                                return (
+                                    <Button
+                                        key={d.value}
+                                        mode={isSel ? "contained" : "outlined"}
+                                        onPress={() => {
+                                            if (isSel) setTempSelectedDays(tempSelectedDays.filter(id => id !== d.value));
+                                            else setTempSelectedDays([...tempSelectedDays, d.value]);
+                                        }}
+                                        style={{ minWidth: 60 }}
+                                        compact
+                                    >
+                                        {d.label}
+                                    </Button>
+                                );
+                            })}
+                        </View>
+                    </ScrollView>
+
+                    <ThemedText style={styles.label}>Aylar (Boş bırakılırsa tüm aylar)</ThemedText>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 15 }}>
+                        <View style={{ flexDirection: 'row', gap: 5 }}>
+                            {MONTHS.filter(m => m.value !== -1).map(m => {
+                                const isSel = tempSelectedMonths.includes(m.value);
+                                return (
+                                    <Button
+                                        key={m.value}
+                                        mode={isSel ? "contained" : "outlined"}
+                                        onPress={() => {
+                                            if (isSel) setTempSelectedMonths(tempSelectedMonths.filter(id => id !== m.value));
+                                            else setTempSelectedMonths([...tempSelectedMonths, m.value]);
+                                        }}
+                                        style={{ minWidth: 60 }}
+                                        compact
+                                    >
+                                        {m.label}
+                                    </Button>
+                                );
+                            })}
+                        </View>
+                    </ScrollView>
+
+                    <ThemedText style={styles.label}>Müşteri Seçin</ThemedText>
                     <Searchbar
                         placeholder="Müşteri Ara..."
                         onChangeText={setSearchQuery}
                         value={searchQuery}
-                        style={[styles.search, { backgroundColor: theme['color-bg'] }]}
+                        style={[styles.search, { backgroundColor: theme['color-bg'], marginBottom: 10 }]}
                     />
 
                     <ScrollView style={{ maxHeight: 300, marginTop: 10 }}>
