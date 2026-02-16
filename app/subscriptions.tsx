@@ -66,9 +66,10 @@ export default function SubscriptionsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
-    // Multi-select State for NEW subscription
+    // Multi-select State for NEW/EDIT subscription
     const [tempSelectedDays, setTempSelectedDays] = useState<number[]>([]);
     const [tempSelectedMonths, setTempSelectedMonths] = useState<number[]>([]); // [] means General
+    const [editingSub, setEditingSub] = useState<Subscription | null>(null);
 
     useEffect(() => {
         fetchData();
@@ -138,6 +139,34 @@ export default function SubscriptionsPage() {
             fetchData();
         } catch (error) {
             showToast('Abone eklenirken hata oluştu.', 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleUpdateSubscription = async () => {
+        if (!editingSub?.id) return;
+
+        if (tempSelectedDays.length === 0) {
+            customAlert("Aboneliği Bitir", "Hiçbir gün seçilmedi. Bu aboneliği tamamen sonlandırmak istiyor musunuz?", async () => {
+                await handleDeleteSubscription(editingSub.id!);
+                setIsAddModalVisible(false);
+            });
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            await firebaseService.updateSubscription(editingSub.id, {
+                daysOfWeek: tempSelectedDays,
+                months: tempSelectedMonths
+            });
+            showToast('Abonelik güncellendi.', 'success');
+            setIsAddModalVisible(false);
+            setEditingSub(null);
+            fetchData();
+        } catch (error) {
+            showToast('Güncelleme hatası.', 'error');
         } finally {
             setIsSaving(false);
         }
@@ -368,9 +397,15 @@ export default function SubscriptionsPage() {
                             <View style={styles.actionBox}>
                                 {sub ? (
                                     <IconButton
-                                        icon="delete-outline"
-                                        iconColor={theme['color-danger']}
-                                        onPress={() => handleDeleteSubscription(sub.id!)}
+                                        icon="pencil-outline"
+                                        iconColor={theme['color-primary']}
+                                        onPress={() => {
+                                            setSelectedSlot(time);
+                                            setEditingSub(sub);
+                                            setTempSelectedDays(sub.daysOfWeek || [sub.dayOfWeek!]);
+                                            setTempSelectedMonths(sub.months || (sub.month !== undefined && sub.month !== -1 ? [sub.month] : []));
+                                            setIsAddModalVisible(true);
+                                        }}
                                     />
                                 ) : (
                                     <Button
@@ -395,10 +430,15 @@ export default function SubscriptionsPage() {
             <Portal>
                 <Modal
                     visible={isAddModalVisible}
-                    onDismiss={() => setIsAddModalVisible(false)}
+                    onDismiss={() => {
+                        setIsAddModalVisible(false);
+                        setEditingSub(null);
+                    }}
                     contentContainerStyle={[styles.modal, { backgroundColor: theme['color-surface'] }]}
                 >
-                    <ThemedText variant="h2" style={{ marginBottom: 10 }}>Abone Seçin</ThemedText>
+                    <ThemedText variant="h2" style={{ marginBottom: 10 }}>
+                        {editingSub ? 'Aboneliği Düzenle' : 'Abone Seçin'}
+                    </ThemedText>
                     <ThemedText variant="caption" style={{ marginBottom: 10 }}>
                         {selectedSlot} saati için abonelik detaylarını belirleyin.
                     </ThemedText>
@@ -460,33 +500,59 @@ export default function SubscriptionsPage() {
                     />
 
                     <ScrollView style={{ maxHeight: 300, marginTop: 10 }}>
-                        {filteredCustomers.length > 0 ? filteredCustomers.map(customer => (
-                            <List.Item
-                                key={customer.id}
-                                title={customer.name}
-                                description={customer.phone}
-                                left={props => <List.Icon {...props} icon="account" />}
-                                onPress={() => handleAddSubscription(customer)}
-                                right={props => <IconButton {...props} icon="plus" />}
-                            />
-                        )) : (
-                            <View style={styles.center}>
-                                <ThemedText>Müşteri bulunamadı.</ThemedText>
-                                <Button mode="text" onPress={() => router.push('/customers')}>Yeni Müşteri Ekle</Button>
+                        {!editingSub ? (
+                            filteredCustomers.length > 0 ? (
+                                filteredCustomers.map(customer => (
+                                    <List.Item
+                                        key={customer.id}
+                                        title={customer.name}
+                                        description={customer.phone}
+                                        left={props => <List.Icon {...props} icon="account" />}
+                                        onPress={() => handleAddSubscription(customer)}
+                                    />
+                                ))
+                            ) : (
+                                <View style={styles.center}>
+                                    <ThemedText>Müşteri bulunamadı.</ThemedText>
+                                    <Button mode="text" onPress={() => router.push('/customers')}>Yeni Müşteri Ekle</Button>
+                                </View>
+                            )
+                        ) : (
+                            <View style={{ padding: 10, alignItems: 'center' }}>
+                                <ThemedText style={{ color: theme['color-primary'], fontWeight: 'bold', marginBottom: 5 }}>
+                                    {editingSub.customerName}
+                                </ThemedText>
+                                <ThemedText variant="caption">Müşteri değiştirilemez, sadece program düzenlenebilir.</ThemedText>
                             </View>
                         )}
                     </ScrollView>
 
-                    <Button
-                        mode="outlined"
-                        onPress={() => setIsAddModalVisible(false)}
-                        style={{ marginTop: 20 }}
-                    >
-                        Kapat
-                    </Button>
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 15 }}>
+                        <Button
+                            mode="outlined"
+                            onPress={() => {
+                                setIsAddModalVisible(false);
+                                setEditingSub(null);
+                            }}
+                            style={{ flex: 1 }}
+                        >
+                            Vazgeç
+                        </Button>
+                        {editingSub && (
+                            <Button
+                                mode="contained"
+                                onPress={handleUpdateSubscription}
+                                loading={isSaving}
+                                disabled={isSaving}
+                                style={{ flex: 1 }}
+                            >
+                                Güncelle
+                            </Button>
+                        )}
+                    </View>
                 </Modal>
             </Portal>
-        </MainLayout>
+        </MainLayout >
     );
 }
 
