@@ -58,6 +58,9 @@ export default function DashboardHome() {
     const [phoneNumber, setPhoneNumber] = useState('');
     const [deposit, setDeposit] = useState('');
     const [isSubscription, setIsSubscription] = useState(false);
+    const [matchFee, setMatchFee] = useState('');
+    const [paymentStatus, setPaymentStatus] = useState<'paid' | 'unpaid' | 'partial'>('unpaid');
+    const [receivedAmount, setReceivedAmount] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
     // Calendar State
@@ -151,15 +154,23 @@ export default function DashboardHome() {
         const isToday = selectedDate.toDateString() === today.toDateString();
 
         const liveNow = appointments.filter(app => app.timeSlot === currentTimeSlot);
-        const todayRevenue = appointments.reduce((sum, app) => sum + (parseInt(app.deposit || '0') || 0), 0);
-        const tomorrowRevenue = 0; // İleride eklenebilir
+        const todayDepositRevenue = appointments.reduce((sum, app) => sum + (parseInt(app.deposit || '0') || 0), 0);
+        const totalIncome = appointments.reduce((sum, app) => {
+            if (app.paymentStatus === 'paid') {
+                return sum + (parseInt(app.matchFee || '0') || 0);
+            } else if (app.paymentStatus === 'partial') {
+                return sum + (parseInt(app.receivedAmount || '0') || 0);
+            }
+            return sum;
+        }, 0);
 
         const totalPossibleSlots = 11 * 2; // 11 saat * 2 saha
         const occupancy = Math.round((appointments.length / totalPossibleSlots) * 100);
 
         return {
             liveNow,
-            todayRevenue,
+            todayRevenue: todayDepositRevenue,
+            totalIncome,
             occupancy,
             isToday
         };
@@ -216,12 +227,18 @@ export default function DashboardHome() {
             setPhoneNumber(app.phoneNumber);
             setDeposit(app.deposit || '');
             setIsSubscription(!!app.isSubscription);
+            setMatchFee(app.matchFee || '');
+            setPaymentStatus(app.paymentStatus || 'unpaid');
+            setReceivedAmount(app.receivedAmount || '');
         } else {
             setEditingAppointment(null);
             setCustomerName('');
             setPhoneNumber('');
             setDeposit('');
             setIsSubscription(false);
+            setMatchFee('');
+            setPaymentStatus('unpaid');
+            setReceivedAmount('');
         }
         setModalVisible(true);
     };
@@ -246,6 +263,9 @@ export default function DashboardHome() {
                 phoneNumber: phoneNumber.trim(),
                 deposit: deposit.trim(),
                 isSubscription,
+                matchFee: matchFee.trim(),
+                paymentStatus,
+                receivedAmount: receivedAmount.trim(),
                 status: 'booked' as const,
             };
 
@@ -280,7 +300,26 @@ export default function DashboardHome() {
             return;
         }
 
-        // Dinamik Mesaj Oluştur
+        // İlk Kademe: Ödeme Durumu Kontrolü
+        if (editingAppointment.paymentStatus === 'paid') {
+            customAlert(
+                "⚠️ Ödeme Alınmış Randevu",
+                `Bu randevunun ödemesi alınmış görünüyor (${editingAppointment.matchFee || '0'} TL).\n\nDeğişiklik yapmak istediğinize emin misiniz?`,
+                () => {
+                    // İkinci Kademe: Mali Etki Uyarısı
+                    customAlert(
+                        "⛔ DİKKAT: MALİ ETKİ",
+                        `Bu işlem günlük raporlardaki 'Toplam Gelir' miktarını doğrudan etkileyecektir.\n\nİşlemi onaylıyor musunuz?`,
+                        async () => {
+                            await performDelete();
+                        }
+                    );
+                }
+            );
+            return;
+        }
+
+        // Normal Silme (Ödeme alınmamışsa)
         let message = "Bu randevuyu silmek istediğinize emin misiniz?";
         const warnings: string[] = [];
 
@@ -300,27 +339,31 @@ export default function DashboardHome() {
             "Randevu Sil",
             message,
             async () => {
-                setIsSaving(true);
-                try {
-                    // Önce bildirimleri iptal etmeyi dene ama hata verirse logla ve devam et
-                    try {
-                        await NotificationService.cancelAllForAppointment(editingAppointment.id!);
-                    } catch (nErr) {
-                        console.error("Bildirim iptal hatası (devam ediliyor):", nErr);
-                    }
-
-                    await firebaseService.deleteAppointment(editingAppointment.id!);
-                    setModalVisible(false);
-                    fetchAppointments();
-                    showToast('Randevu başarıyla silindi.', 'success');
-                } catch (error) {
-                    console.error("Silme hatası:", error);
-                    showToast('Randevu veritabanından silinemedi. Lütfen internetinizi kontrol edin.', 'error');
-                } finally {
-                    setIsSaving(false);
-                }
+                await performDelete();
             }
         );
+    };
+
+    const performDelete = async () => {
+        setIsSaving(true);
+        try {
+            // Önce bildirimleri iptal etmeyi dene ama hata verirse logla ve devam et
+            try {
+                await NotificationService.cancelAllForAppointment(editingAppointment!.id!);
+            } catch (nErr) {
+                console.error("Bildirim iptal hatası (devam ediliyor):", nErr);
+            }
+
+            await firebaseService.deleteAppointment(editingAppointment.id!);
+            setModalVisible(false);
+            fetchAppointments();
+            showToast('Randevu başarıyla silindi.', 'success');
+        } catch (error) {
+            console.error("Silme hatası:", error);
+            showToast('Randevu veritabanından silinemedi. Lütfen internetinizi kontrol edin.', 'error');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const playSound = async (type: 'start' | 'warning' | 'end') => {
@@ -359,11 +402,14 @@ export default function DashboardHome() {
                                     {app ? (
                                         <View style={styles.bookingInfo}>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                                {app.paymentStatus === 'paid' && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981' }} />}
+                                                {app.paymentStatus === 'unpaid' && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#DC2626' }} />}
+                                                {app.paymentStatus === 'partial' && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#F59E0B' }} />}
                                                 <ThemedText style={[styles.customerName, { color: theme['color-text-primary'] }]}>{app.customerName}</ThemedText>
                                                 {app.isSubscription && <IconButton icon="star" size={14} iconColor="#FFD700" style={{ margin: 0, padding: 0 }} />}
                                             </View>
                                             <ThemedText style={[styles.bookingStatus, { color: theme['color-primary'], fontSize: 11 }]}>
-                                                {app.deposit ? `${app.deposit} TL Kapora` : 'Ödeme Yok'}
+                                                {app.matchFee ? `${app.matchFee} TL` : (app.deposit ? `${app.deposit} TL Kapora` : 'Ödeme Yok')}
                                             </ThemedText>
                                         </View>
                                     ) : (
@@ -444,6 +490,36 @@ export default function DashboardHome() {
                         <TextInput label="Müşteri Adı" value={customerName} onChangeText={setCustomerName} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} />
                         <TextInput label="Telefon Numarası" value={phoneNumber} onChangeText={setPhoneNumber} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} keyboardType="phone-pad" />
                         <TextInput label="Kapora (TL)" value={deposit} onChangeText={setDeposit} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} keyboardType="numeric" />
+
+                        <Divider style={[styles.divider, { backgroundColor: theme['color-border'], marginVertical: 10 }]} />
+                        <ThemedText variant="label" style={{ marginBottom: 10, color: theme['color-text-primary'] }}>Maç Ücreti ve Ödeme</ThemedText>
+
+                        <TextInput label="Maç Ücreti (TL)" value={matchFee} onChangeText={setMatchFee} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} keyboardType="numeric" />
+
+                        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+                            <Button
+                                mode={paymentStatus === 'unpaid' ? 'contained' : 'outlined'}
+                                onPress={() => setPaymentStatus('unpaid')}
+                                style={{ flex: 1 }}
+                                buttonColor={paymentStatus === 'unpaid' ? '#DC2626' : undefined}
+                                textColor={paymentStatus === 'unpaid' ? '#fff' : theme['color-text-primary']}
+                            >
+                                🔴 Ödenmedi
+                            </Button>
+                            <Button
+                                mode={paymentStatus === 'paid' ? 'contained' : 'outlined'}
+                                onPress={() => setPaymentStatus('paid')}
+                                style={{ flex: 1 }}
+                                buttonColor={paymentStatus === 'paid' ? '#10B981' : undefined}
+                                textColor={paymentStatus === 'paid' ? '#fff' : theme['color-text-primary']}
+                            >
+                                🟢 Ödendi
+                            </Button>
+                        </View>
+
+                        {paymentStatus === 'partial' && (
+                            <TextInput label="Alınan Ödeme (TL)" value={receivedAmount} onChangeText={setReceivedAmount} style={[styles.input, { backgroundColor: theme['color-surface'] }]} mode="outlined" outlineColor={theme['color-border']} activeOutlineColor={theme['color-primary']} textColor={theme['color-text-primary']} keyboardType="numeric" />
+                        )}
 
                         <View style={styles.checkboxRow}>
                             <Checkbox status={isSubscription ? 'checked' : 'unchecked'} onPress={() => setIsSubscription(!isSubscription)} color={theme['color-primary']} />
@@ -605,8 +681,13 @@ export default function DashboardHome() {
                         {/* Summary Cards */}
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.summaryScroll} contentContainerStyle={styles.summaryContainer}>
                             <Surface style={[styles.summaryCard, { backgroundColor: theme['color-primary'] + '15', borderColor: theme['color-primary'] + '30' }]} elevation={0}>
-                                <ThemedText style={styles.summaryLabel}>Bugünkü Kazanç</ThemedText>
+                                <ThemedText style={styles.summaryLabel}>Kapora</ThemedText>
                                 <ThemedText style={[styles.summaryValue, { color: theme['color-primary'] }]}>{todayStats.todayRevenue} TL</ThemedText>
+                            </Surface>
+
+                            <Surface style={[styles.summaryCard, { backgroundColor: '#10B98115', borderColor: '#10B98130' }]} elevation={0}>
+                                <ThemedText style={[styles.summaryLabel, { color: '#10B981' }]}>Günün Geliri</ThemedText>
+                                <ThemedText style={[styles.summaryValue, { color: '#10B981' }]}>💰 {todayStats.totalIncome} TL</ThemedText>
                             </Surface>
 
                             <Surface style={[styles.summaryCard, { backgroundColor: '#2563EB15', borderColor: '#2563EB30' }]} elevation={0}>

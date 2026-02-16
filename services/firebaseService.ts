@@ -11,6 +11,9 @@ export interface Appointment {
     status: 'booked' | 'cancelled';
     deposit?: string; // Kapora
     isSubscription?: boolean; // Abone mi?
+    matchFee?: string;
+    paymentStatus?: 'paid' | 'unpaid' | 'partial';
+    receivedAmount?: string;
     createdAt: any;
 }
 
@@ -37,6 +40,7 @@ export interface Customer {
     months?: number[]; // [0-11]
     depositAmount?: string;
     depositDate?: any;
+    weeklyFee?: string;
 }
 
 const APPOINTMENTS_COLLECTION = 'appointments';

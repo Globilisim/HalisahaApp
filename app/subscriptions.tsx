@@ -72,6 +72,7 @@ export default function SubscriptionsPage() {
     const [tempSelectedMonths, setTempSelectedMonths] = useState<number[]>([]); // [] means General
     const [editingSub, setEditingSub] = useState<Subscription | null>(null);
     const [depositAmount, setDepositAmount] = useState('');
+    const [weeklyFee, setWeeklyFee] = useState('');
 
     useEffect(() => {
         fetchData();
@@ -135,7 +136,8 @@ export default function SubscriptionsPage() {
                 active: true,
                 months: tempSelectedMonths.length > 0 ? tempSelectedMonths : (selectedMonth !== -1 ? [selectedMonth] : []),
                 depositAmount: depositAmount,
-                depositDate: depositAmount ? serverTimestamp() : null
+                depositDate: depositAmount ? serverTimestamp() : null,
+                weeklyFee: weeklyFee
             };
             await firebaseService.addSubscription(newSub);
             showToast('Abonelik başarıyla eklendi.', 'success');
@@ -169,7 +171,8 @@ export default function SubscriptionsPage() {
             const dataToUpdate: Partial<Subscription> = {
                 daysOfWeek: tempSelectedDays,
                 months: tempSelectedMonths,
-                depositAmount: depositAmount
+                depositAmount: depositAmount,
+                weeklyFee: weeklyFee
             };
 
             // Eğer kapora değiştiyse veya yeni eklendiyse tarih at
@@ -182,6 +185,7 @@ export default function SubscriptionsPage() {
             setIsAddModalVisible(false);
             setEditingSub(null);
             setDepositAmount('');
+            setWeeklyFee('');
             fetchData();
         } catch (error) {
             showToast('Güncelleme hatası.', 'error');
@@ -315,6 +319,8 @@ export default function SubscriptionsPage() {
                                         status: 'booked' as const,
                                         isSubscription: true,
                                         deposit: '0',
+                                        matchFee: sub.weeklyFee || '',
+                                        paymentStatus: 'unpaid' as const
                                     };
 
                                     await firebaseService.addAppointment(newApp);
@@ -441,6 +447,7 @@ export default function SubscriptionsPage() {
                                             setTempSelectedDays(sub.daysOfWeek || [sub.dayOfWeek!]);
                                             setTempSelectedMonths(sub.months || (sub.month !== undefined && sub.month !== -1 ? [sub.month] : []));
                                             setDepositAmount(sub.depositAmount || '');
+                                            setWeeklyFee(sub.weeklyFee || '');
                                             setIsAddModalVisible(true);
                                         }}
                                     />
@@ -528,14 +535,23 @@ export default function SubscriptionsPage() {
                         </View>
                     </ScrollView>
 
-                    <ThemedText style={styles.label}>
-                        Güvence Kaporası (Bir seferlik)
-                    </ThemedText>
                     <TextInput
-                        mode="outlined"
-                        placeholder="Örn: 500"
+                        label="Güvence Kaporası (Bir seferlik)"
                         value={depositAmount}
                         onChangeText={setDepositAmount}
+                        mode="outlined"
+                        placeholder="Örn: 500"
+                        keyboardType="numeric"
+                        left={<TextInput.Affix text="₺" />}
+                        style={{ marginBottom: 5, backgroundColor: theme['color-bg'] }}
+                    />
+
+                    <TextInput
+                        label="Haftalık Maç Ücreti"
+                        value={weeklyFee}
+                        onChangeText={setWeeklyFee}
+                        mode="outlined"
+                        placeholder="Örn: 600"
                         keyboardType="numeric"
                         left={<TextInput.Affix text="₺" />}
                         style={{ marginBottom: 5, backgroundColor: theme['color-bg'] }}
