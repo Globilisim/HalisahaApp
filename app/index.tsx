@@ -193,12 +193,22 @@ export default function DashboardHome() {
             .sort(([, a], [, b]) => b - a)
             .slice(0, 5);
 
+        const monthlyIncome = allAppointments.reduce((sum, app) => {
+            if (app.paymentStatus === 'paid') {
+                return sum + (parseInt(app.matchFee || '0') || 0);
+            } else if (app.paymentStatus === 'partial') {
+                return sum + (parseInt(app.receivedAmount || '0') || 0);
+            }
+            return sum;
+        }, 0);
+
         return {
             bookedSlots,
             emptySlots: Math.max(0, totalSlotsInMonth - bookedSlots),
             subscriptionCount,
             totalRegisteredSubscribers,
-            topCustomers
+            topCustomers,
+            monthlyIncome
         };
     }, [allAppointments, customers]);
 
@@ -526,27 +536,35 @@ export default function DashboardHome() {
                             <ThemedText style={{ color: theme['color-text-primary'] }}>Abone Kaydı</ThemedText>
                         </View>
 
-                        <Divider style={[styles.divider, { backgroundColor: theme['color-border'] }]} />
+                        <Divider style={[styles.divider, { backgroundColor: theme['color-border'], marginVertical: 15 }]} />
 
-                        <View style={styles.modalActions}>
-                            {editingAppointment && (
-                                <>
-                                    <Button
-                                        mode="contained"
-                                        onPress={() => handleWhatsApp(phoneNumber, customerName)}
-                                        buttonColor="#25D366"
-                                        textColor="#fff"
-                                        icon="whatsapp"
-                                        style={{ borderRadius: 8 }}
-                                    >
-                                        WhatsApp
-                                    </Button>
-                                    <Button mode="text" onPress={handleDelete} textColor={theme['color-danger']} disabled={isSaving}>Sil</Button>
-                                </>
-                            )}
-                            <View style={{ flex: 1 }} />
+                        {editingAppointment && (
+                            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 15 }}>
+                                <Button
+                                    mode="contained"
+                                    onPress={() => handleWhatsApp(phoneNumber, customerName)}
+                                    buttonColor="#25D366"
+                                    textColor="#fff"
+                                    icon="whatsapp"
+                                    style={{ flex: 1, borderRadius: 8 }}
+                                >
+                                    WhatsApp
+                                </Button>
+                                <Button
+                                    mode="outlined"
+                                    onPress={handleDelete}
+                                    textColor={theme['color-danger']}
+                                    disabled={isSaving}
+                                    style={{ flex: 1, borderRadius: 8 }}
+                                >
+                                    Sil
+                                </Button>
+                            </View>
+                        )}
+
+                        <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end' }}>
                             <Button mode="text" onPress={() => setModalVisible(false)} textColor={theme['color-text-secondary']}>Vazgeç</Button>
-                            <Button mode="contained" onPress={handleSave} style={styles.saveButton} buttonColor={theme['color-primary']} textColor={theme['color-bg']} loading={isSaving}>Kaydet</Button>
+                            <Button mode="contained" onPress={handleSave} buttonColor={theme['color-primary']} textColor={theme['color-bg']} loading={isSaving}>Kaydet</Button>
                         </View>
                     </Modal>
 
@@ -573,6 +591,13 @@ export default function DashboardHome() {
                                 <Surface style={[styles.statCard, { backgroundColor: theme['color-surface'] }]} elevation={2}>
                                     <Text style={[styles.statLabel, { color: theme['color-text-secondary'] }]}>Toplam Maç</Text>
                                     <Text style={[styles.statValue, { color: theme['color-primary'] }]}>{stats.bookedSlots}</Text>
+                                </Surface>
+                                <Surface style={[styles.statCard, { backgroundColor: theme['color-surface'] }]} elevation={2}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                        <Text style={[styles.statLabel, { color: theme['color-text-secondary'] }]}>Aylık Toplam Gelir</Text>
+                                        <Text style={{ fontSize: 16 }}>💰</Text>
+                                    </View>
+                                    <Text style={[styles.statValue, { color: '#10B981' }]}>{stats.monthlyIncome} TL</Text>
                                 </Surface>
                             </View>
 
