@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Surface, IconButton, Button, Portal, Modal, List, Searchbar, SegmentedButtons, ActivityIndicator } from 'react-native-paper';
 import { MainLayout } from '../components/Layout/MainLayout';
@@ -19,6 +19,18 @@ const DAYS = [
 ];
 
 const HOURS = ['14.00', '15.00', '16.00', '17.00', '18.00', '19.00', '20.00', '21.00', '22.00', '23.00', '00.00'];
+
+const customAlert = (title: string, message: string, onConfirm: () => void) => {
+    if (Platform.OS === 'web') {
+        const confirmed = window.confirm(`${title}\n\n${message}`);
+        if (confirmed) onConfirm();
+    } else {
+        Alert.alert(title, message, [
+            { text: 'Vazgeç', style: 'cancel' },
+            { text: 'Evet', style: 'destructive', onPress: onConfirm }
+        ]);
+    }
+};
 
 export default function SubscriptionsPage() {
     const router = useRouter();
@@ -120,68 +132,62 @@ export default function SubscriptionsPage() {
             return;
         }
 
-        Alert.alert(
+        customAlert(
             "Aboneleri Aktar",
             "Bu işlem, önümüzdeki 30 gün için tüm abone saatlerini randevu olarak takvime ekleyecektir. Onaylıyor musunuz?",
-            [
-                { text: "Vazgeç", style: "cancel" },
-                {
-                    text: "Evet, Aktar",
-                    onPress: async () => {
-                        setIsSaving(true);
-                        try {
-                            let count = 0;
-                            const today = new Date();
+            async () => {
+                setIsSaving(true);
+                try {
+                    let count = 0;
+                    const today = new Date();
 
-                            // Önümüzdeki 4 hafta (28 gün) için döngü
-                            for (let i = 0; i < 28; i++) {
-                                const targetDate = new Date();
-                                targetDate.setDate(today.getDate() + i);
-                                const dayOfWeek = targetDate.getDay();
-                                const dateStr = `${targetDate.getDate().toString().padStart(2, '0')}.${(targetDate.getMonth() + 1).toString().padStart(2, '0')}.${targetDate.getFullYear().toString().slice(-2)}`;
+                    // Önümüzdeki 4 hafta (28 gün) için döngü
+                    for (let i = 0; i < 28; i++) {
+                        const targetDate = new Date();
+                        targetDate.setDate(today.getDate() + i);
+                        const dayOfWeek = targetDate.getDay();
+                        const dateStr = `${targetDate.getDate().toString().padStart(2, '0')}.${(targetDate.getMonth() + 1).toString().padStart(2, '0')}.${targetDate.getFullYear().toString().slice(-2)}`;
 
-                                // O güne ait aboneleri bul
-                                const daySubs = subscriptions.filter(s => s.dayOfWeek === dayOfWeek && s.active);
+                        // O güne ait aboneleri bul
+                        const daySubs = subscriptions.filter(s => s.dayOfWeek === dayOfWeek && s.active);
 
-                                if (daySubs.length > 0) {
-                                    // O güne ait tüm randevuları çek (Senkronizasyon kontrolü için)
-                                    const existingApps = await firebaseService.getAppointments(targetDate);
+                        if (daySubs.length > 0) {
+                            // O güne ait tüm randevuları çek (Senkronizasyon kontrolü için)
+                            const existingApps = await firebaseService.getAppointments(targetDate);
 
-                                    for (const sub of daySubs) {
-                                        // Zaten o tarihte ve saatte randevu var mı kontrol et
-                                        const isAlreadyBooked = existingApps.some((app: Appointment) =>
-                                            app.pitchId === sub.pitchId &&
-                                            app.timeSlot === sub.timeSlot
-                                        );
+                            for (const sub of daySubs) {
+                                // Zaten o tarihte ve saatte randevu var mı kontrol et
+                                const isAlreadyBooked = existingApps.some((app: Appointment) =>
+                                    app.pitchId === sub.pitchId &&
+                                    app.timeSlot === sub.timeSlot
+                                );
 
-                                        if (!isAlreadyBooked) {
-                                            const newApp = {
-                                                pitchId: sub.pitchId,
-                                                timeSlot: sub.timeSlot,
-                                                dateString: dateStr,
-                                                customerName: sub.customerName,
-                                                phoneNumber: sub.customerPhone,
-                                                status: 'booked' as const,
-                                                isSubscription: true,
-                                                deposit: '0',
-                                            };
+                                if (!isAlreadyBooked) {
+                                    const newApp = {
+                                        pitchId: sub.pitchId,
+                                        timeSlot: sub.timeSlot,
+                                        dateString: dateStr,
+                                        customerName: sub.customerName,
+                                        phoneNumber: sub.customerPhone,
+                                        status: 'booked' as const,
+                                        isSubscription: true,
+                                        deposit: '0',
+                                    };
 
-                                            await firebaseService.addAppointment(newApp);
-                                            count++;
-                                        }
-                                    }
+                                    await firebaseService.addAppointment(newApp);
+                                    count++;
                                 }
                             }
-                            showToast(`${count} adet abone randevusu oluşturuldu.`, 'success');
-                        } catch (error) {
-                            console.error("Sync hatası:", error);
-                            showToast('Aktarım sırasında bir hata oluştu.', 'error');
-                        } finally {
-                            setIsSaving(false);
                         }
                     }
+                    showToast(`${count} adet abone randevusu oluşturuldu.`, 'success');
+                } catch (error) {
+                    console.error("Sync hatası:", error);
+                    showToast('Aktarım sırasında bir hata oluştu.', 'error');
+                } finally {
+                    setIsSaving(false);
                 }
-            ]
+            }
         );
     };
 
