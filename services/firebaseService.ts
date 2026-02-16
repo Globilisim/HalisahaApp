@@ -19,6 +19,7 @@ export interface Customer {
     name: string;
     phone: string;
     note?: string;
+    isSubscriber?: boolean;
     createdAt: any;
 }
 

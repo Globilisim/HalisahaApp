@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Linking, Alert, Platform } from 'react-native';
-import { Card, IconButton, Searchbar, FAB, Portal, Modal, TextInput, Button, Divider, ActivityIndicator } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Linking, Alert, Platform, TouchableOpacity } from 'react-native';
+import { Card, IconButton, Searchbar, FAB, Portal, Modal, TextInput, Button, Divider, ActivityIndicator, Checkbox } from 'react-native-paper';
 import { MainLayout } from '../components/Layout/MainLayout';
 import { ThemedText } from '../components/ThemedText';
 import { useTheme } from '../config/ThemeContext';
@@ -32,6 +32,7 @@ export default function CustomersPage() {
     const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>(undefined);
     const [customerName, setCustomerName] = useState('');
     const [customerPhone, setCustomerPhone] = useState('');
+    const [isSubscriber, setIsSubscriber] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
     const { action } = useLocalSearchParams();
@@ -62,9 +63,11 @@ export default function CustomersPage() {
         if (customer) {
             setCustomerName(customer.name);
             setCustomerPhone(customer.phone);
+            setIsSubscriber(!!customer.isSubscriber);
         } else {
             setCustomerName('');
             setCustomerPhone('');
+            setIsSubscriber(false);
         }
         setIsModalVisible(true);
     };
@@ -80,6 +83,7 @@ export default function CustomersPage() {
             const customerData = {
                 name: customerName.trim(),
                 phone: customerPhone.trim(),
+                isSubscriber: isSubscriber,
             };
 
             if (editingCustomer?.id) {
@@ -162,7 +166,17 @@ export default function CustomersPage() {
                             <Card key={customer.id} style={[styles.card, { backgroundColor: theme['color-surface'], borderColor: theme['color-border'] }]}>
                                 <Card.Content style={styles.cardContent}>
                                     <View style={styles.info}>
-                                        <ThemedText variant="h3">{customer.name}</ThemedText>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                            <ThemedText variant="h3">{customer.name}</ThemedText>
+                                            {customer.isSubscriber && (
+                                                <IconButton
+                                                    icon="star"
+                                                    size={16}
+                                                    iconColor="#FFD700"
+                                                    style={{ margin: 0, padding: 0, width: 20, height: 20 }}
+                                                />
+                                            )}
+                                        </View>
                                         <ThemedText variant="caption">{customer.phone}</ThemedText>
                                     </View>
                                     <View style={styles.actions}>
@@ -222,6 +236,19 @@ export default function CustomersPage() {
                         style={styles.input}
                         activeOutlineColor={theme['color-primary']}
                     />
+
+                    <TouchableOpacity
+                        style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15, gap: 10 }}
+                        onPress={() => setIsSubscriber(!isSubscriber)}
+                        activeOpacity={0.7}
+                    >
+                        <Checkbox
+                            status={isSubscriber ? 'checked' : 'unchecked'}
+                            onPress={() => setIsSubscriber(!isSubscriber)}
+                            color={theme['color-primary']}
+                        />
+                        <ThemedText>Düzenli Abone</ThemedText>
+                    </TouchableOpacity>
 
                     <View style={styles.modalActions}>
                         <Button

@@ -5,7 +5,7 @@ import { Text, Card, IconButton, Portal, Modal, TextInput, Button, Checkbox, Div
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DatePickerModal } from 'react-native-paper-dates';
 // import { PieChart } from 'react-native-chart-kit'; // Disabled for web compatibility
-import { firebaseService, Appointment } from '../services/firebaseService';
+import { firebaseService, Appointment, Customer } from '../services/firebaseService';
 import { NotificationService, BuzzerSettings } from '../services/NotificationService';
 import Slider from '@react-native-community/slider';
 import { ThemedCard } from '../components/ThemedCard';
@@ -51,6 +51,7 @@ export default function DashboardHome() {
     const [settingsVisible, setSettingsVisible] = useState(false);
     const [selectedSlot, setSelectedSlot] = useState<{ pitchId: 'barnebau' | 'noucamp', timeSlot: string } | null>(null);
     const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+    const [customers, setCustomers] = useState<Customer[]>([]);
 
     // Form State
     const [customerName, setCustomerName] = useState('');
@@ -126,6 +127,11 @@ export default function DashboardHome() {
             const data = await firebaseService.getAllAppointmentsInMonth(monthStr);
             const filtered = data.filter(app => app.dateString.endsWith(monthStr));
             setAllAppointments(filtered);
+
+            // Abone sayısını müşteriler koleksiyonundan çek
+            const customerData = await firebaseService.getCustomers();
+            setCustomers(customerData);
+
             setAnalysisVisible(true);
         } catch (error) {
             console.error("Analiz verisi çekme hatası:", error);
@@ -142,6 +148,7 @@ export default function DashboardHome() {
         const totalSlotsInMonth = 11 * 2 * 30; // 11 saat * 2 saha * 30 gün (temsili)
         const bookedSlots = allAppointments.length;
         const subscriptionCount = allAppointments.filter(a => a.isSubscription).length;
+        const totalRegisteredSubscribers = customers.filter(c => c.isSubscriber).length;
 
         const customerCounts: { [key: string]: number } = {};
         allAppointments.forEach(app => {
@@ -158,9 +165,10 @@ export default function DashboardHome() {
             bookedSlots,
             emptySlots: Math.max(0, totalSlotsInMonth - bookedSlots),
             subscriptionCount,
+            totalRegisteredSubscribers,
             topCustomers
         };
-    }, [allAppointments]);
+    }, [allAppointments, customers]);
 
     const chartData = [
         {
@@ -445,12 +453,19 @@ export default function DashboardHome() {
 
                             <View style={styles.statsGrid}>
                                 <Surface style={[styles.statCard, { backgroundColor: theme['color-surface'] }]} elevation={2}>
-                                    <Text style={[styles.statLabel, { color: theme['color-text-secondary'] }]}>Toplam Maç</Text>
-                                    <Text style={[styles.statValue, { color: theme['color-primary'] }]}>{stats.bookedSlots}</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                        <Text style={[styles.statLabel, { color: theme['color-text-secondary'] }]}>Kayıtlı Abone</Text>
+                                        <IconButton icon="star" size={14} iconColor="#FFD700" style={{ margin: 0, padding: 0, width: 20, height: 20 }} />
+                                    </View>
+                                    <Text style={[styles.statValue, { color: '#FFD700' }]}>{stats.totalRegisteredSubscribers}</Text>
                                 </Surface>
                                 <Surface style={[styles.statCard, { backgroundColor: theme['color-surface'] }]} elevation={2}>
-                                    <Text style={[styles.statLabel, { color: theme['color-text-secondary'] }]}>Abone Sayısı</Text>
+                                    <Text style={[styles.statLabel, { color: theme['color-text-secondary'] }]}>Bu Ayki Abone Maçı</Text>
                                     <Text style={[styles.statValue, { color: theme['color-primary'] }]}>{stats.subscriptionCount}</Text>
+                                </Surface>
+                                <Surface style={[styles.statCard, { backgroundColor: theme['color-surface'] }]} elevation={2}>
+                                    <Text style={[styles.statLabel, { color: theme['color-text-secondary'] }]}>Toplam Maç</Text>
+                                    <Text style={[styles.statValue, { color: theme['color-primary'] }]}>{stats.bookedSlots}</Text>
                                 </Surface>
                             </View>
 
