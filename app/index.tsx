@@ -10,6 +10,11 @@ import { NotificationService, BuzzerSettings } from '../services/NotificationSer
 import Slider from '@react-native-community/slider';
 import { ThemedCard } from '../components/ThemedCard';
 import { ThemedText } from '../components/ThemedText';
+import { StatsCard } from '../components/StatsCard';
+import { ChartWidget } from '../components/ChartWidget';
+import { ThemeToggle } from '../components/ThemeToggle';
+import { SkeletonLoader } from '../components/SkeletonLoader';
+import { MainLayout } from '../components/Layout/MainLayout';
 import { ThemedContainer } from '../components/ThemedContainer';
 import { useTheme } from '../config/ThemeContext';
 
@@ -294,13 +299,21 @@ export default function Dashboard() {
                     </View>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
+                <View>
                     {[14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0].map(hour => {
                         const timeStr = hour === 0 ? "00.00" : `${hour < 10 ? '0' + hour : hour}.00`;
                         const app = pitchAppointments.find(a => a.timeSlot?.startsWith(timeStr));
 
                         return (
-                            <TouchableOpacity key={hour} activeOpacity={0.7} onPress={() => handleOpenModal(pitchId, timeStr, app)}>
+                            <TouchableOpacity
+                                key={hour}
+                                activeOpacity={0.7}
+                                onPress={() => handleOpenModal(pitchId, timeStr, app)}
+                                accessible={true}
+                                accessibilityRole="button"
+                                accessibilityLabel={`${hour}:00 - ${(hour + 1) % 24}:00, ${app ? 'Dolu, Müşteri: ' + app.customerName : 'Boş'}`}
+                                accessibilityHint="Randevu detaylarını görmek veya düzenlemek için dokunun"
+                            >
                                 <ThemedCard style={[
                                     styles.slotCard,
                                     { backgroundColor: theme['color-surface'] },
@@ -327,17 +340,24 @@ export default function Dashboard() {
                             </TouchableOpacity>
                         );
                     })}
-                </ScrollView>
+                </View>
             </View>
         );
     };
 
+    const chartConfig = {
+        backgroundGradientFrom: theme['color-surface'],
+        backgroundGradientTo: theme['color-surface'],
+        color: (opacity = 1) => theme['color-primary'],
+    };
+
     return (
-        <ThemedContainer style={styles.container}>
+        <MainLayout>
             <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
                 <Portal>
-                    {/* Randevu Modalı */}
+                    {/* Randevu Modalı - Mevcut kod korunuyor */}
                     <Modal visible={modalVisible} onDismiss={() => setModalVisible(false)} contentContainerStyle={[styles.modalContent, { backgroundColor: theme['color-surface'], borderColor: theme['color-border'] }]}>
+                        {/* ... Modal Content ... */}
                         <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme['color-text-primary'] }]}>
                             {editingAppointment ? 'Randevu Düzenle' : 'Yeni Randevu'}
                         </Text>
@@ -521,73 +541,102 @@ export default function Dashboard() {
                     </Modal>
                 </Portal>
 
-                <View style={styles.headerContainer}>
-                    {/* Banner Alanı */}
-                    <View style={styles.bannerArea}>
-                        <Image
-                            source={require('../assets/banner.png')}
-                            style={styles.bannerImage}
-                            resizeMode="contain"
-                        />
-                    </View>
-
-                    {/* Kontroller ve Tarih */}
-                    <View style={styles.controlsArea}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 80 }}>
+                    {/* Header Section */}
+                    <View style={styles.dashboardHeader}>
                         <View>
-                            <ThemedText variant="h2" style={[styles.title, { color: theme['color-text-primary'] }]}>SPORT CITY</ThemedText>
-                            <ThemedText style={[styles.subtitle, { color: theme['color-text-secondary'] }]}>İşletme Paneli • {selectedDate.toLocaleDateString('tr-TR')}</ThemedText>
+                            <ThemedText variant="h1" style={{ color: theme['color-text-primary'] }}>Dashboard</ThemedText>
+                            <ThemedText variant="caption" style={{ color: theme['color-text-secondary'] }}>{selectedDate.toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</ThemedText>
                         </View>
                         <View style={{ flexDirection: 'row' }}>
+                            <IconButton
+                                icon="calendar"
+                                mode="contained"
+                                containerColor={theme['color-surface']}
+                                iconColor={theme['color-primary']}
+                                onPress={() => setIsCalendarOpen(true)}
+                                accessibilityLabel="Takvimi Aç"
+                            />
                             <IconButton
                                 icon="bell-ring"
                                 mode="contained"
                                 containerColor={theme['color-surface']}
                                 iconColor={theme['color-primary']}
-                                size={20}
                                 onPress={() => setSettingsVisible(true)}
+                                accessibilityLabel="Bildirim Ayarları"
                             />
-                            <IconButton
+                            <ThemeToggle />
+                        </View>
+                    </View>
+
+                    {/* Stats Grid */}
+                    <View style={[styles.statsGrid, { flexDirection: isMobile ? 'column' : 'row' }]}>
+                        <View style={{ flex: 1 }}>
+                            <StatsCard
+                                title="Toplam Randevu"
+                                value={stats.bookedSlots}
+                                icon="calendar-check"
+                                trend={{ value: 12, direction: 'up', label: 'Geçen aya göre' }}
+                            />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <StatsCard
+                                title="Abone Sayısı"
+                                value={stats.subscriptionCount}
+                                icon="account-group"
+                                color={theme['color-primary-hover']}
+                            />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <StatsCard
+                                title="Doluluk Oranı"
+                                value={`%${Math.round((stats.bookedSlots / (stats.bookedSlots + stats.emptySlots)) * 100) || 0}`}
                                 icon="chart-pie"
-                                mode="contained"
-                                containerColor={theme['color-surface']}
-                                iconColor={theme['color-primary']}
-                                size={20}
-                                onPress={fetchAnalysisData}
-                                loading={isAnalyzing}
-                            />
-                            <IconButton
-                                icon="calendar-month"
-                                mode="contained"
-                                containerColor={theme['color-surface']}
-                                iconColor={theme['color-primary']}
-                                size={20}
-                                onPress={() => setIsCalendarOpen(true)}
+                                trend={{ value: 5, direction: 'down', label: 'Düşüşte' }}
+                                color={theme['color-danger']}
                             />
                         </View>
                     </View>
-                </View>
 
-                <DatePickerModal
-                    locale="tr"
-                    mode="single"
-                    visible={isCalendarOpen}
-                    onDismiss={() => setIsCalendarOpen(false)}
-                    date={selectedDate}
-                    onConfirm={onConfirmDate}
-                    label="Tarih Seçin"
-                />
+                    {/* Chart Section */}
+                    <ChartWidget
+                        title="Doluluk Analizi"
+                        type="pie"
+                        data={chartData}
+                        loading={isAnalyzing}
+                        height={220}
+                    />
 
-                {loading ? (
-                    <ThemedContainer style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color={theme['color-primary']} />
-                        <ThemedText style={[styles.loadingText, { color: theme['color-text-primary'] }]}>Yükleniyor...</ThemedText>
-                    </ThemedContainer>
-                ) : (
-                    <View style={[styles.content, isMobile ? styles.mobileContent : styles.tabletContent]}>
-                        {renderPitchColumn('barnebau', 'BARNEBAU')}
-                        {renderPitchColumn('noucamp', 'NOU CAMP')}
-                    </View>
-                )}
+                    <DatePickerModal
+                        locale="tr"
+                        mode="single"
+                        visible={isCalendarOpen}
+                        onDismiss={() => setIsCalendarOpen(false)}
+                        date={selectedDate}
+                        onConfirm={onConfirmDate}
+                        label="Tarih Seçin"
+                    />
+
+                    {loading ? (
+                        <ThemedContainer style={[styles.loadingContainer, { flexDirection: 'row', gap: 10, padding: 10 }]}>
+                            <View style={{ flex: 1 }}>
+                                <SkeletonLoader height={40} style={{ marginBottom: 10 }} />
+                                <SkeletonLoader height={100} style={{ marginBottom: 10 }} />
+                                <SkeletonLoader height={100} style={{ marginBottom: 10 }} />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <SkeletonLoader height={40} style={{ marginBottom: 10 }} />
+                                <SkeletonLoader height={100} style={{ marginBottom: 10 }} />
+                                <SkeletonLoader height={100} style={{ marginBottom: 10 }} />
+                            </View>
+                        </ThemedContainer>
+                    ) : (
+                        <View style={[styles.content, isMobile ? styles.mobileContent : styles.tabletContent]}>
+                            {renderPitchColumn('barnebau', 'BARNEBAU')}
+                            {renderPitchColumn('noucamp', 'NOU CAMP')}
+                        </View>
+                    )}
+                </ScrollView>
             </SafeAreaView>
             <FAB
                 icon="plus"
@@ -598,7 +647,7 @@ export default function Dashboard() {
                     Alert.alert('Bilgi', 'Hızlı randevu ekleme özelliği yakında gelecek.');
                 }}
             />
-        </ThemedContainer>
+        </MainLayout>
     );
 }
 
@@ -610,6 +659,14 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(255,255,255,0.1)',
         paddingBottom: 10,
+    },
+    dashboardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        marginBottom: 20,
+        marginTop: 10
     },
     bannerArea: {
         width: '100%',

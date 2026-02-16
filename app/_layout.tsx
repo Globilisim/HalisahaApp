@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { PaperProvider, MD3DarkTheme, MD3LightTheme } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { ThemeProvider, useTheme } from '../config/ThemeContext';
+import { ToastProvider } from '../config/ToastContext';
 import { View } from 'react-native';
 
 const AppContent = () => {
@@ -35,7 +36,9 @@ const AppContent = () => {
 export default function RootLayout() {
     return (
         <ThemeProvider>
-            <AppContent />
+            <ToastProvider>
+                <AppContent />
+            </ToastProvider>
         </ThemeProvider>
     );
 }

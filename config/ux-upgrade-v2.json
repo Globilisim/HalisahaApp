@@ -1,0 +1,124 @@
+{
+    "project": "HaliSahaApp",
+    "upgradeVersion": "2.0",
+    "goal": "Professional SaaS UX Upgrade",
+    "principles": [
+        "Consistency",
+        "Clarity",
+        "Feedback",
+        "Accessibility",
+        "Performance"
+    ],
+    "layoutImprovements": {
+        "desktop": {
+            "enableSidebar": true,
+            "sidebarWidth": 240,
+            "contentMaxWidth": 1280,
+            "contentCentered": true
+        },
+        "tablet": {
+            "sidebarMode": "collapsible",
+            "gridColumns": 2
+        },
+        "mobile": {
+            "sidebarMode": "drawer",
+            "bottomSpacing": 80
+        }
+    },
+    "dashboardEnhancements": {
+        "statsCards": {
+            "hoverEffect": true,
+            "trendIndicator": true,
+            "trendIcons": [
+                "arrow-up",
+                "arrow-down"
+            ],
+            "showMiniGraph": true
+        },
+        "charts": {
+            "enable": true,
+            "types": [
+                "bar",
+                "line"
+            ],
+            "height": 240,
+            "responsive": true
+        }
+    },
+    "navigation": {
+        "activeStateHighlight": true,
+        "activeIndicator": "left-border",
+        "hoverAnimation": true,
+        "transitionDuration": 200
+    },
+    "microInteractions": {
+        "button": {
+            "hoverScale": 1.02,
+            "activeScale": 0.98,
+            "transition": "150ms ease"
+        },
+        "card": {
+            "hoverElevation": true,
+            "hoverTranslateY": -2
+        },
+        "input": {
+            "focusBorderWidth": 2,
+            "focusAnimation": true
+        },
+        "themeToggle": {
+            "animateIconRotation": true,
+            "transition": "300ms ease"
+        }
+    },
+    "feedbackSystem": {
+        "loadingStates": {
+            "useSkeleton": true,
+            "spinnerFallback": true
+        },
+        "toastNotifications": {
+            "position": "top-right",
+            "autoClose": 3000,
+            "variants": [
+                "success",
+                "error",
+                "info",
+                "warning"
+            ]
+        },
+        "formValidation": {
+            "realTimeValidation": true,
+            "errorMessageBelowInput": true,
+            "successCheckIcon": true
+        }
+    },
+    "emptyStates": {
+        "illustration": true,
+        "titleRequired": true,
+        "descriptionRequired": true,
+        "primaryActionButton": true
+    },
+    "accessibility": {
+        "wcagLevel": "AA",
+        "minContrastRatio": 4.5,
+        "focusVisibleOutline": true,
+        "keyboardNavigation": true,
+        "ariaLabelsRequired": true
+    },
+    "performance": {
+        "lazyLoadCharts": true,
+        "avoidLayoutShift": true,
+        "themeFlashPrevention": true,
+        "transitionDurationGlobal": 200
+    },
+    "spacingSystem": {
+        "use8ptGrid": true,
+        "sectionSpacing": 32,
+        "cardGap": 24
+    },
+    "typographyEnhancement": {
+        "improveLineHeight": true,
+        "bodyLineHeight": 1.6,
+        "headingLetterSpacing": -0.2,
+        "maxTextWidth": 680
+    }
+}
