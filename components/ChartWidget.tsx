@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Dimensions, ActivityIndicator, Platform } from 'react-native';
 import { Surface, Text } from 'react-native-paper';
 import { PieChart, BarChart } from 'react-native-chart-kit';
 import { useTheme } from '../config/ThemeContext';
@@ -43,21 +43,30 @@ export const ChartWidget = ({ title, type, data, loading, height = 240 }: ChartW
                 </View>
             ) : (
                 <View style={styles.content}>
-                    {type === 'pie' && (
-                        <PieChart
-                            data={data}
-                            width={chartWidth}
-                            height={height}
-                            chartConfig={chartConfig}
-                            accessor={"population"}
-                            backgroundColor={"transparent"}
-                            paddingLeft={"15"}
-                            center={[0, 0]}
-                            absolute
-                            hasLegend={true}
-                        />
+                    {Platform.OS === 'web' ? (
+                        <View style={{ padding: 20, alignItems: 'center' }}>
+                            <ThemedText style={{ color: theme['color-text-secondary'] }}>
+                                Grafik web versiyonunda şu an için görüntülenemiyor.
+                            </ThemedText>
+                        </View>
+                    ) : (
+                        <>
+                            {type === 'pie' && (
+                                <PieChart
+                                    data={data}
+                                    width={chartWidth}
+                                    height={height}
+                                    chartConfig={chartConfig}
+                                    accessor={"population"}
+                                    backgroundColor={"transparent"}
+                                    paddingLeft={"15"}
+                                    center={[0, 0]}
+                                    absolute
+                                    hasLegend={true}
+                                />
+                            )}
+                        </>
                     )}
-                    {/* Add BarChart logic here if needed later */}
                 </View>
             )}
         </Surface>

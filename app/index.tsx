@@ -4,7 +4,7 @@ import { Audio } from 'expo-av';
 import { Text, Card, IconButton, Portal, Modal, TextInput, Button, Checkbox, Divider, Surface, ActivityIndicator, FAB } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DatePickerModal } from 'react-native-paper-dates';
-import { PieChart } from 'react-native-chart-kit';
+// import { PieChart } from 'react-native-chart-kit'; // Disabled for web compatibility
 import { firebaseService, Appointment } from '../services/firebaseService';
 import { NotificationService, BuzzerSettings } from '../services/NotificationService';
 import Slider from '@react-native-community/slider';
@@ -419,19 +419,9 @@ export default function Dashboard() {
 
                             <Text style={[styles.sectionTitle, { marginTop: 20, color: theme['color-text-primary'] }]}>Doluluk Oranı</Text>
                             <View style={styles.chartContainer}>
-                                <PieChart
-                                    data={chartData}
-                                    width={Dimensions.get("window").width * 0.8}
-                                    height={180}
-                                    chartConfig={{
-                                        color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                                    }}
-                                    accessor={"population"}
-                                    backgroundColor={"transparent"}
-                                    paddingLeft={"15"}
-                                    center={[0, 0]}
-                                    absolute
-                                />
+                                <ThemedText style={{ color: theme['color-text-secondary'], textAlign: 'center', padding: 20 }}>
+                                    Detaylı analiz grafiği ana sayfada mevcuttur.
+                                </ThemedText>
                             </View>
 
                             <Text style={[styles.sectionTitle, { color: theme['color-text-primary'] }]}>En Çok Gelen Aboneler</Text>
