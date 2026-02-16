@@ -69,6 +69,7 @@ export default function DashboardHome() {
     // Analysis State
     const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [subscriberListVisible, setSubscriberListVisible] = useState(false);
 
     // Buzzer Settings
     const [buzzerSettings, setBuzzerSettings] = useState<BuzzerSettings>({
@@ -120,7 +121,7 @@ export default function DashboardHome() {
         }
     };
 
-    const fetchAnalysisData = async () => {
+    const fetchAnalysisData = async (openModal: boolean = true) => {
         setIsAnalyzing(true);
         try {
             const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
@@ -135,7 +136,9 @@ export default function DashboardHome() {
             const customerData = await firebaseService.getCustomers();
             setCustomers(customerData);
 
-            setAnalysisVisible(true);
+            if (openModal) {
+                setAnalysisVisible(true);
+            }
         } catch (error) {
             console.error("Analiz verisi çekme hatası:", error);
         } finally {
@@ -299,7 +302,7 @@ export default function DashboardHome() {
 
             // Eğer analiz modalı açıksa, verileri yenile
             if (analysisVisible) {
-                await fetchAnalysisData();
+                await fetchAnalysisData(false); // Modal açmadan sadece veriyi yenile
             }
 
             showToast(editingAppointment ? 'Randevu güncellendi.' : 'Randevu kaydedildi.', 'success');
@@ -585,13 +588,16 @@ export default function DashboardHome() {
                             </View>
 
                             <View style={styles.statsGrid}>
-                                <Surface style={[styles.statCard, { backgroundColor: theme['color-surface'] }]} elevation={2}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                        <Text style={[styles.statLabel, { color: theme['color-text-secondary'] }]}>Kayıtlı Abone</Text>
-                                        <IconButton icon="star" size={14} iconColor="#FFD700" style={{ margin: 0, padding: 0, width: 20, height: 20 }} />
-                                    </View>
-                                    <Text style={[styles.statValue, { color: '#FFD700' }]}>{stats.totalRegisteredSubscribers}</Text>
-                                </Surface>
+                                <TouchableOpacity onPress={() => setSubscriberListVisible(true)} activeOpacity={0.7}>
+                                    <Surface style={[styles.statCard, { backgroundColor: theme['color-surface'] }]} elevation={2}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                            <Text style={[styles.statLabel, { color: theme['color-text-secondary'] }]}>Kayıtlı Abone</Text>
+                                            <IconButton icon="star" size={14} iconColor="#FFD700" style={{ margin: 0, padding: 0, width: 20, height: 20 }} />
+                                        </View>
+                                        <Text style={[styles.statValue, { color: '#FFD700' }]}>{stats.totalRegisteredSubscribers}</Text>
+                                        <Text style={{ fontSize: 10, color: theme['color-text-secondary'], marginTop: 4 }}>Listeyi görüntüle ›</Text>
+                                    </Surface>
+                                </TouchableOpacity>
                                 <Surface style={[styles.statCard, { backgroundColor: theme['color-surface'] }]} elevation={2}>
                                     <Text style={[styles.statLabel, { color: theme['color-text-secondary'] }]}>Bu Ayki Abone Maçı</Text>
                                     <Text style={[styles.statValue, { color: theme['color-primary'] }]}>{stats.subscriptionCount}</Text>
@@ -623,6 +629,49 @@ export default function DashboardHome() {
                                     <Text style={[styles.aboneCount, { color: theme['color-primary'] }]}>{count} Randevu</Text>
                                 </View>
                             ))}
+                        </ScrollView>
+                    </Modal>
+
+                    {/* Abone Listesi Modalı */}
+                    <Modal visible={subscriberListVisible} onDismiss={() => setSubscriberListVisible(false)} contentContainerStyle={[styles.modalContent, { width: width * 0.9, alignSelf: 'center', maxHeight: '80%', backgroundColor: theme['color-surface'], borderColor: theme['color-border'] }]}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                            <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme['color-text-primary'] }]}>Kayıtlı Aboneler</Text>
+                            <IconButton icon="close" iconColor={theme['color-text-primary']} onPress={() => setSubscriberListVisible(false)} />
+                        </View>
+
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            {customers.filter(c => c.isSubscriber).length === 0 ? (
+                                <ThemedText style={{ textAlign: 'center', padding: 20, color: theme['color-text-secondary'] }}>
+                                    Henüz kayıtlı abone bulunmamaktadır.
+                                </ThemedText>
+                            ) : (
+                                customers.filter(c => c.isSubscriber).map((subscriber, index) => (
+                                    <Surface key={subscriber.id || index} style={[styles.aboneItem, { backgroundColor: theme['color-surface'], marginBottom: 10, padding: 12, borderRadius: 8 }]} elevation={1}>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <View style={{ flex: 1 }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                                    <IconButton icon="star" size={16} iconColor="#FFD700" style={{ margin: 0, padding: 0 }} />
+                                                    <Text style={[styles.aboneName, { color: theme['color-text-primary'], fontSize: 16, fontWeight: 'bold' }]}>{subscriber.name}</Text>
+                                                </View>
+                                                <Text style={{ color: theme['color-text-secondary'], fontSize: 13, marginLeft: 22 }}>📱 {subscriber.phone}</Text>
+                                                {subscriber.depositAmount && parseInt(subscriber.depositAmount) > 0 && (
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, marginLeft: 22 }}>
+                                                        <Text style={{ fontSize: 12, color: theme['color-primary'], fontWeight: 'bold' }}>
+                                                            🛡️ {subscriber.depositAmount} TL Güvence
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                            <IconButton
+                                                icon="whatsapp"
+                                                iconColor="#25D366"
+                                                size={24}
+                                                onPress={() => handleWhatsApp(subscriber.phone, subscriber.name)}
+                                            />
+                                        </View>
+                                    </Surface>
+                                ))
+                            )}
                         </ScrollView>
                     </Modal>
 
