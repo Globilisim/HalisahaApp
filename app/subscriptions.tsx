@@ -8,6 +8,22 @@ import { useTheme } from '../config/ThemeContext';
 import { useToast } from '../config/ToastContext';
 import { firebaseService, Subscription, Appointment, Customer } from '../services/firebaseService';
 
+const MONTHS = [
+    { label: 'Genel', value: -1 },
+    { label: 'Oca', value: 0 },
+    { label: 'Şub', value: 1 },
+    { label: 'Mar', value: 2 },
+    { label: 'Nis', value: 3 },
+    { label: 'May', value: 4 },
+    { label: 'Haz', value: 5 },
+    { label: 'Tem', value: 6 },
+    { label: 'Ağu', value: 7 },
+    { label: 'Eyl', value: 8 },
+    { label: 'Eki', value: 9 },
+    { label: 'Kas', value: 10 },
+    { label: 'Ara', value: 11 },
+];
+
 const DAYS = [
     { label: 'Pzt', value: 1 },
     { label: 'Sal', value: 2 },
@@ -41,7 +57,8 @@ export default function SubscriptionsPage() {
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [selectedPitch, setSelectedPitch] = useState<'barnebau' | 'noucamp'>('barnebau');
-    const [selectedDay, setSelectedDay] = useState(1);
+    const [selectedDay, setSelectedDay] = useState(new Date().getDay() || 1);
+    const [selectedMonth, setSelectedMonth] = useState(-1); // -1 = Genel
 
     // Modal State
     const [isAddModalVisible, setIsAddModalVisible] = useState(false);
@@ -80,7 +97,8 @@ export default function SubscriptionsPage() {
                 customerId: customer.id!,
                 customerName: customer.name,
                 customerPhone: customer.phone,
-                active: true
+                active: true,
+                month: selectedMonth !== -1 ? selectedMonth : undefined
             };
             await firebaseService.addSubscription(newSub);
             showToast('Abonelik başarıyla eklendi.', 'success');
@@ -112,7 +130,8 @@ export default function SubscriptionsPage() {
         return subscriptions.find(s =>
             s.pitchId === selectedPitch &&
             s.dayOfWeek === selectedDay &&
-            s.timeSlot === time
+            s.timeSlot === time &&
+            (selectedMonth === -1 ? (!s.month || s.month === -1) : s.month === selectedMonth)
         );
     };
 
@@ -132,31 +151,50 @@ export default function SubscriptionsPage() {
             return;
         }
 
+        const monthLabel = selectedMonth === -1 ? "Önümüzdeki 30 Gün" : MONTHS.find(m => m.value === selectedMonth)?.label;
+
         customAlert(
             "Aboneleri Aktar",
-            "Bu işlem, önümüzdeki 30 gün için tüm abone saatlerini randevu olarak takvime ekleyecektir. Onaylıyor musunuz?",
+            `${monthLabel} dönemi için tüm abone saatlerini randevu olarak takvime ekleyecektir. Onaylıyor musunuz?`,
             async () => {
                 setIsSaving(true);
                 try {
                     let count = 0;
                     const today = new Date();
+                    const currentYear = today.getFullYear();
 
-                    // Önümüzdeki 4 hafta (28 gün) için döngü
-                    for (let i = 0; i < 28; i++) {
-                        const targetDate = new Date();
-                        targetDate.setDate(today.getDate() + i);
+                    const iterateDates: Date[] = [];
+
+                    if (selectedMonth === -1) {
+                        // Önümüzdeki 4 hafta
+                        for (let i = 0; i < 28; i++) {
+                            const d = new Date();
+                            d.setDate(today.getDate() + i);
+                            iterateDates.push(d);
+                        }
+                    } else {
+                        // Seçilen ayın tüm günleri
+                        const daysInMonth = new Date(currentYear, selectedMonth + 1, 0).getDate();
+                        for (let i = 1; i <= daysInMonth; i++) {
+                            iterateDates.push(new Date(currentYear, selectedMonth, i));
+                        }
+                    }
+
+                    for (const targetDate of iterateDates) {
                         const dayOfWeek = targetDate.getDay();
                         const dateStr = `${targetDate.getDate().toString().padStart(2, '0')}.${(targetDate.getMonth() + 1).toString().padStart(2, '0')}.${targetDate.getFullYear().toString().slice(-2)}`;
 
-                        // O güne ait aboneleri bul
-                        const daySubs = subscriptions.filter(s => s.dayOfWeek === dayOfWeek && s.active);
+                        // O güne ait aboneleri bul (Filtreleme: Genel aboneler + O aya özel aboneler)
+                        const daySubs = subscriptions.filter(s =>
+                            s.dayOfWeek === dayOfWeek &&
+                            s.active &&
+                            (!s.month || s.month === -1 || s.month === targetDate.getMonth())
+                        );
 
                         if (daySubs.length > 0) {
-                            // O güne ait tüm randevuları çek (Senkronizasyon kontrolü için)
                             const existingApps = await firebaseService.getAppointments(targetDate);
 
                             for (const sub of daySubs) {
-                                // Zaten o tarihte ve saatte randevu var mı kontrol et
                                 const isAlreadyBooked = existingApps.some((app: Appointment) =>
                                     app.pitchId === sub.pitchId &&
                                     app.timeSlot === sub.timeSlot
@@ -210,23 +248,37 @@ export default function SubscriptionsPage() {
             </View>
 
             <Surface style={[styles.controls, { backgroundColor: theme['color-surface'], borderColor: theme['color-border'] }]}>
-                <ThemedText style={styles.label}>Saha Seçimi</ThemedText>
-                <SegmentedButtons
-                    value={selectedPitch}
-                    onValueChange={v => setSelectedPitch(v as any)}
-                    buttons={[
-                        { value: 'barnebau', label: 'Barnebau' },
-                        { value: 'noucamp', label: 'Nou Camp' },
-                    ]}
-                    style={styles.segmented}
-                />
+                <View style={{ flexDirection: 'row', gap: 15 }}>
+                    <View style={{ flex: 1 }}>
+                        <ThemedText style={styles.label}>Saha Seçimi</ThemedText>
+                        <SegmentedButtons
+                            value={selectedPitch}
+                            onValueChange={v => setSelectedPitch(v as any)}
+                            buttons={[
+                                { value: 'barnebau', label: 'Barnebau' },
+                                { value: 'noucamp', label: 'Nou Camp' },
+                            ]}
+                            style={styles.segmented}
+                        />
+                    </View>
+                </View>
 
-                <ThemedText style={styles.label}>Gün Seçimi</ThemedText>
+                <ThemedText style={styles.label}>Ay/Sezon Seçimi</ThemedText>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 15 }}>
+                    <SegmentedButtons
+                        value={selectedMonth.toString()}
+                        onValueChange={v => setSelectedMonth(parseInt(v))}
+                        buttons={MONTHS.map((m: any) => ({ value: m.value.toString(), label: m.label }))}
+                        style={styles.segmented}
+                    />
+                </ScrollView>
+
+                <ThemedText style={styles.label}>Gün Seçimi (Haftalık Çizelge)</ThemedText>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <SegmentedButtons
                         value={selectedDay.toString()}
                         onValueChange={v => setSelectedDay(parseInt(v))}
-                        buttons={DAYS.map(d => ({ value: d.value.toString(), label: d.label }))}
+                        buttons={DAYS.map((d: any) => ({ value: d.value.toString(), label: d.label }))}
                         style={styles.segmented}
                     />
                 </ScrollView>
@@ -293,7 +345,7 @@ export default function SubscriptionsPage() {
                 >
                     <ThemedText variant="h2" style={{ marginBottom: 10 }}>Abone Seçin</ThemedText>
                     <ThemedText variant="caption" style={{ marginBottom: 20 }}>
-                        {DAYS.find(d => d.value === selectedDay)?.label} {selectedSlot} saati için müşteri seçin.
+                        {DAYS.find((d: any) => d.value === selectedDay)?.label} {selectedSlot} saati için müşteri seçin.
                     </ThemedText>
 
                     <Searchbar

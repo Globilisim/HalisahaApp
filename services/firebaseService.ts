@@ -30,6 +30,7 @@ export interface Customer {
     customerName: string;
     customerPhone: string;
     active: boolean;
+    month?: number; // 0-11 (Jan-Dec), undefined means General
 }
 
 const APPOINTMENTS_COLLECTION = 'appointments';
