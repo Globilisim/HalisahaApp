@@ -29,7 +29,7 @@ export const Sidebar = ({ visible, onDismiss, mode }: SidebarProps) => {
     const isCollapsed = mode === 'tablet' && collapsed;
 
     const handlePress = (path: string) => {
-        // router.push(path); // Gerçek navigasyon için
+        router.push(path); // Gerçek navigasyon için
         if (mode === 'mobile' && onDismiss) {
             onDismiss();
         }

@@ -19,7 +19,7 @@ import { ThemedContainer } from '../components/ThemedContainer';
 import { useTheme } from '../config/ThemeContext';
 import { useToast } from '../config/ToastContext';
 
-export default function Dashboard() {
+export default function DashboardHome() {
     const { width } = useWindowDimensions();
     const { theme, setMode, mode, isDark } = useTheme();
     const { showToast } = useToast();
