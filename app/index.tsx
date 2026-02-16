@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, StyleSheet, useWindowDimensions, ScrollView, TouchableOpacity, Dimensions, Linking, Image, Alert } from 'react-native';
+import { View, StyleSheet, useWindowDimensions, ScrollView, TouchableOpacity, Dimensions, Linking, Image, Alert, Platform } from 'react-native';
 import { Audio } from 'expo-av';
 import { Text, Card, IconButton, Portal, Modal, TextInput, Button, Checkbox, Divider, Surface, ActivityIndicator, FAB } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -258,6 +258,7 @@ export default function Dashboard() {
     };
 
     const playSound = async (type: 'start' | 'warning' | 'end') => {
+        if (Platform.OS === 'web') return; // Disable sound on web to prevent crashes
         try {
             let soundFile;
             switch (type) {

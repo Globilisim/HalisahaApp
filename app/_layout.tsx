@@ -23,12 +23,14 @@ const AppContent = () => {
 
     return (
         <PaperProvider theme={paperTheme}>
-            <StatusBar style={isDark ? "light" : "dark"} />
-            <View style={{ flex: 1, backgroundColor: theme['color-bg'] }}>
-                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme['color-bg'] } }}>
-                    <Stack.Screen name="index" />
-                </Stack>
-            </View>
+            <ToastProvider>
+                <StatusBar style={isDark ? "light" : "dark"} />
+                <View style={{ flex: 1, backgroundColor: theme['color-bg'] }}>
+                    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme['color-bg'] } }}>
+                        <Stack.Screen name="index" />
+                    </Stack>
+                </View>
+            </ToastProvider>
         </PaperProvider>
     );
 };
@@ -36,9 +38,7 @@ const AppContent = () => {
 export default function RootLayout() {
     return (
         <ThemeProvider>
-            <ToastProvider>
-                <AppContent />
-            </ToastProvider>
+            <AppContent />
         </ThemeProvider>
     );
 }
