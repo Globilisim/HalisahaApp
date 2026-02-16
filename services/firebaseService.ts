@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, query, where, updateDoc, deleteDoc, doc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, updateDoc, doc, deleteDoc, orderBy, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 export interface Appointment {
@@ -21,10 +21,20 @@ export interface Customer {
     note?: string;
     isSubscriber?: boolean;
     createdAt: any;
+}export interface Subscription {
+    id?: string;
+    pitchId: 'barnebau' | 'noucamp';
+    dayOfWeek: number; // 0 (Sun) - 6 (Sat)
+    timeSlot: string;
+    customerId: string;
+    customerName: string;
+    customerPhone: string;
+    active: boolean;
 }
 
 const APPOINTMENTS_COLLECTION = 'appointments';
 const CUSTOMERS_COLLECTION = 'customers';
+const SUBSCRIPTIONS_COLLECTION = 'subscriptions';
 
 export const firebaseService = {
     // Belirli bir tarih dizisi (dd.mm.yy) için randevuları getir
@@ -168,5 +178,32 @@ export const firebaseService = {
             console.error("Müşteri silinirken hata oluştu:", error);
             throw error;
         }
-    }
+    },
+    // Subscription Operations
+    getSubscriptions: async (): Promise<Subscription[]> => {
+        const q = query(collection(db, SUBSCRIPTIONS_COLLECTION));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription));
+    },
+
+    addSubscription: async (subscription: Subscription): Promise<string> => {
+        const docRef = await addDoc(collection(db, SUBSCRIPTIONS_COLLECTION), {
+            ...subscription,
+            createdAt: serverTimestamp(),
+        });
+        return docRef.id;
+    },
+
+    updateSubscription: async (id: string, subscription: Partial<Subscription>): Promise<void> => {
+        const docRef = doc(db, SUBSCRIPTIONS_COLLECTION, id);
+        await updateDoc(docRef, {
+            ...subscription,
+            updatedAt: serverTimestamp(),
+        });
+    },
+
+    deleteSubscription: async (id: string): Promise<void> => {
+        const docRef = doc(db, SUBSCRIPTIONS_COLLECTION, id);
+        await deleteDoc(docRef);
+    },
 };

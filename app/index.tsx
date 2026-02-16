@@ -144,6 +144,27 @@ export default function DashboardHome() {
         fetchAppointments();
     }, [selectedDate]);
 
+    const todayStats = useMemo(() => {
+        const today = new Date();
+        const hour = today.getHours();
+        const currentTimeSlot = `${hour < 10 ? '0' + hour : hour}.00`;
+        const isToday = selectedDate.toDateString() === today.toDateString();
+
+        const liveNow = appointments.filter(app => app.timeSlot === currentTimeSlot);
+        const todayRevenue = appointments.reduce((sum, app) => sum + (parseInt(app.deposit || '0') || 0), 0);
+        const tomorrowRevenue = 0; // İleride eklenebilir
+
+        const totalPossibleSlots = 11 * 2; // 11 saat * 2 saha
+        const occupancy = Math.round((appointments.length / totalPossibleSlots) * 100);
+
+        return {
+            liveNow,
+            todayRevenue,
+            occupancy,
+            isToday
+        };
+    }, [appointments, selectedDate]);
+
     const stats = useMemo(() => {
         const totalSlotsInMonth = 11 * 2 * 30; // 11 saat * 2 saha * 30 gün (temsili)
         const bookedSlots = allAppointments.length;
@@ -288,53 +309,48 @@ export default function DashboardHome() {
         const pitchAppointments = appointments.filter(app => app.pitchId === pitchId);
 
         return (
-            <View style={[styles.fieldColumn, { backgroundColor: theme['color-surface'], borderColor: theme['color-border'] }]}>
-                <View style={styles.pitchHeader}>
-                    <ThemedText variant="h2" style={styles.fieldTitle}>{title}</ThemedText>
-                    <View style={[styles.pitchStatusBadge, { backgroundColor: theme['color-success'] + '26' }]}>
-                        <ThemedText style={[styles.statusText, { color: theme['color-success'] }]}>
-                            {pitchAppointments.length} Dolu</ThemedText>
-                    </View>
-                </View>
-
-                <View>
+            <View style={styles.pitchColumn}>
+                <Surface style={[styles.pitchHeader, { backgroundColor: theme['color-primary'] + '10', borderColor: theme['color-primary'] + '20' }]} elevation={0}>
+                    <ThemedText style={{ fontWeight: 'bold', color: theme['color-primary'] }}>{title.toUpperCase()}</ThemedText>
+                </Surface>
+                <View style={[styles.slotsContainer, { backgroundColor: theme['color-surface'], borderColor: theme['color-border'] }]}>
                     {[14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0].map(hour => {
-                        const timeStr = hour === 0 ? "00.00" : `${hour < 10 ? '0' + hour : hour}.00`;
-                        const app = pitchAppointments.find(a => a.timeSlot?.startsWith(timeStr));
+                        const time = `${hour < 10 ? '0' + hour : hour}.00`;
+                        const app = pitchAppointments.find(a => a.timeSlot === time);
 
                         return (
                             <TouchableOpacity
-                                key={hour}
+                                key={time}
+                                style={[
+                                    styles.slotItem,
+                                    { borderBottomColor: theme['color-border'] + '40' },
+                                    app?.status === 'booked' && styles.bookedSlot
+                                ]}
+                                onPress={() => handleOpenModal(pitchId, time, app)}
                                 activeOpacity={0.7}
-                                onPress={() => handleOpenModal(pitchId, timeStr, app)}
-                                accessible={true}
-                                accessibilityRole="button"
-                                accessibilityLabel={`${hour}:00 - ${(hour + 1) % 24}:00, ${app ? 'Dolu, Müşteri: ' + app.customerName : 'Boş'}`}
-                                accessibilityHint="Randevu detaylarını görmek veya düzenlemek için dokunun"
                             >
-                                <ThemedCard style={[
-                                    styles.slotCard,
-                                    { backgroundColor: theme['color-surface'] },
-                                    app ? styles.bookedCard : styles.availableCard,
-                                    app ? { backgroundColor: theme['color-danger'] + '1A', borderColor: theme['color-danger'], borderLeftColor: theme['color-danger'] } : { borderColor: theme['color-success'] + '1A' }
-                                ]}>
-                                    <View style={styles.slotContent}>
-                                        <View style={{ flex: 1 }}>
-                                            <View style={styles.timeRow}>
-                                                <ThemedText style={[styles.timeText, { color: theme['color-text-primary'] }]}>{hour < 10 ? '0' + hour : hour}:00 - {(hour + 1) % 24}:00</ThemedText>
-                                                {app?.isSubscription && <ThemedText style={[styles.aboneBadge, { backgroundColor: theme['color-primary'], color: theme['color-bg'] }]}>ABONE</ThemedText>}
+                                <View style={styles.slotTimeBox}>
+                                    <ThemedText style={[styles.slotTime, { color: theme['color-text-secondary'] }]}>{time}</ThemedText>
+                                </View>
+
+                                <View style={styles.slotContent}>
+                                    {app ? (
+                                        <View style={styles.bookingInfo}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                                <ThemedText style={[styles.customerName, { color: theme['color-text-primary'] }]}>{app.customerName}</ThemedText>
+                                                {app.isSubscription && <IconButton icon="star" size={14} iconColor="#FFD700" style={{ margin: 0, padding: 0 }} />}
                                             </View>
-                                            <ThemedText numberOfLines={1} style={[styles.customerText, { color: theme['color-text-secondary'] }]}>
-                                                {app ? app.customerName : 'Müsait'}
+                                            <ThemedText style={[styles.bookingStatus, { color: theme['color-primary'], fontSize: 11 }]}>
+                                                {app.deposit ? `${app.deposit} TL Kapora` : 'Ödeme Yok'}
                                             </ThemedText>
                                         </View>
-                                        <IconButton
-                                            icon={app ? "pencil" : "plus-circle"}
-                                            iconColor={app ? theme['color-text-secondary'] : theme['color-primary']}
-                                            size={20}
-                                        />
-                                    </View>
-                                </ThemedCard>
+                                    ) : (
+                                        <View style={styles.emptySlotContent}>
+                                            <IconButton icon="plus-circle-outline" size={18} iconColor={theme['color-primary'] + '40'} style={{ margin: 0 }} />
+                                            <ThemedText style={[styles.emptyText, { color: theme['color-text-secondary'] + '60' }]}>Randevu Al</ThemedText>
+                                        </View>
+                                    )}
+                                </View>
                             </TouchableOpacity>
                         );
                     })}
@@ -343,19 +359,12 @@ export default function DashboardHome() {
         );
     };
 
-    const chartConfig = {
-        backgroundGradientFrom: theme['color-surface'],
-        backgroundGradientTo: theme['color-surface'],
-        color: (opacity = 1) => theme['color-primary'],
-    };
-
     return (
         <MainLayout>
             <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
                 <Portal>
                     {/* Randevu Modalı - Mevcut kod korunuyor */}
                     <Modal visible={modalVisible} onDismiss={() => setModalVisible(false)} contentContainerStyle={[styles.modalContent, { backgroundColor: theme['color-surface'], borderColor: theme['color-border'] }]}>
-                        {/* ... Modal Content ... */}
                         <Text variant="headlineSmall" style={[styles.modalTitle, { color: theme['color-text-primary'] }]}>
                             {editingAppointment ? 'Randevu Düzenle' : 'Yeni Randevu'}
                         </Text>
@@ -581,7 +590,7 @@ export default function DashboardHome() {
 
                         <Button mode="contained" onPress={() => setSettingsVisible(false)} style={[styles.saveButton, { marginTop: 20 }]} buttonColor={theme['color-primary']} textColor={theme['color-bg']}>Tamam</Button>
                     </Modal>
-                </Portal>
+                </Portal >
 
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 80 }}>
                     {/* Header Section */}
@@ -590,6 +599,31 @@ export default function DashboardHome() {
                             <ThemedText variant="h1" style={{ color: theme['color-text-primary'] }}>Dashboard</ThemedText>
                             <ThemedText variant="caption" style={{ color: theme['color-text-secondary'] }}>{selectedDate.toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</ThemedText>
                         </View>
+
+                        {/* Summary Cards */}
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.summaryScroll} contentContainerStyle={styles.summaryContainer}>
+                            <Surface style={[styles.summaryCard, { backgroundColor: theme['color-primary'] + '15', borderColor: theme['color-primary'] + '30' }]} elevation={0}>
+                                <ThemedText style={styles.summaryLabel}>Bugünkü Kazanç</ThemedText>
+                                <ThemedText style={[styles.summaryValue, { color: theme['color-primary'] }]}>{todayStats.todayRevenue} TL</ThemedText>
+                            </Surface>
+
+                            <Surface style={[styles.summaryCard, { backgroundColor: '#2563EB15', borderColor: '#2563EB30' }]} elevation={0}>
+                                <ThemedText style={[styles.summaryLabel, { color: '#2563EB' }]}>Doluluk</ThemedText>
+                                <ThemedText style={[styles.summaryValue, { color: '#2563EB' }]}>%{todayStats.occupancy}</ThemedText>
+                            </Surface>
+
+                            {todayStats.isToday && (
+                                <Surface style={[styles.summaryCard, { backgroundColor: todayStats.liveNow.length > 0 ? '#DC262615' : '#05966915', borderColor: todayStats.liveNow.length > 0 ? '#DC262630' : '#05966930' }]} elevation={0}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                        <View style={[styles.liveDot, { backgroundColor: todayStats.liveNow.length > 0 ? '#DC2626' : '#059669' }]} />
+                                        <ThemedText style={[styles.summaryLabel, { color: todayStats.liveNow.length > 0 ? '#DC2626' : '#059669' }]}>Şu An</ThemedText>
+                                    </View>
+                                    <ThemedText style={[styles.summaryValue, { color: todayStats.liveNow.length > 0 ? '#DC2626' : '#059669' }]}>
+                                        {todayStats.liveNow.length > 0 ? `${todayStats.liveNow.length} Maç` : 'Saha Boş'}
+                                    </ThemedText>
+                                </Surface>
+                            )}
+                        </ScrollView>
                         <View style={{ flexDirection: 'row' }}>
                             <IconButton
                                 icon="calendar"
@@ -679,9 +713,9 @@ export default function DashboardHome() {
                         </View>
                     )}
                 </ScrollView>
-            </SafeAreaView>
+            </SafeAreaView >
             {/* SPEED DIAL FAB */}
-            <Portal>
+            < Portal >
                 <FAB.Group
                     open={fabOpen}
                     visible
@@ -714,8 +748,8 @@ export default function DashboardHome() {
                     fabStyle={[styles.fab, { backgroundColor: theme['color-primary'] }]}
                     theme={{ colors: { primaryContainer: theme['color-primary'] } }}
                 />
-            </Portal>
-        </MainLayout>
+            </Portal >
+        </MainLayout >
     );
 }
 
@@ -735,6 +769,89 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         marginBottom: 20,
         marginTop: 10
+    },
+    summaryScroll: {
+        marginBottom: 20,
+    },
+    summaryContainer: {
+        paddingHorizontal: 20,
+        gap: 12,
+    },
+    summaryCard: {
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        minWidth: 140,
+    },
+    summaryLabel: {
+        fontSize: 11,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+        opacity: 0.8,
+    },
+    summaryValue: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginTop: 2,
+    },
+    liveDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+    },
+    pitchColumn: {
+        flex: 1,
+        marginHorizontal: 10,
+        marginBottom: 20,
+    },
+    slotsContainer: {
+        borderRadius: 16,
+        borderWidth: 1,
+        overflow: 'hidden',
+    },
+    slotItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        minHeight: 64,
+    },
+    slotTimeBox: {
+        width: 45,
+    },
+    slotTime: {
+        fontSize: 13,
+        fontWeight: 'bold',
+    },
+    slotContent: {
+        flex: 1,
+        marginLeft: 12,
+    },
+    bookingInfo: {
+        flex: 1,
+    },
+    customerName: {
+        fontSize: 15,
+        fontWeight: 'bold',
+    },
+    emptySlotContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    emptyText: {
+        fontSize: 13,
+        fontStyle: 'italic',
+    },
+    bookingStatus: {
+        fontSize: 11,
+        fontWeight: '500',
+        marginTop: 2,
+    },
+    bookedSlot: {
+        backgroundColor: 'rgba(46, 125, 50, 0.05)',
     },
     bannerArea: {
         width: '100%',
@@ -797,46 +914,6 @@ const styles = StyleSheet.create({
     statusText: {
         fontSize: 12,
         fontWeight: 'bold',
-    },
-    slotCard: {
-        marginBottom: 8,
-        borderRadius: 12,
-        overflow: 'hidden',
-        borderWidth: 1,
-        elevation: 2,
-    },
-    availableCard: {
-        opacity: 0.9,
-    },
-    bookedCard: {
-        borderWidth: 1,
-        borderLeftWidth: 5,
-    },
-    slotContent: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 12,
-    },
-    timeRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    timeText: {
-        fontSize: 14,
-        fontWeight: 'bold',
-    },
-    customerText: {
-        fontSize: 12,
-    },
-    aboneBadge: {
-        fontSize: 9,
-        fontWeight: 'bold',
-        paddingHorizontal: 4,
-        paddingVertical: 1,
-        borderRadius: 4,
-        overflow: 'hidden',
     },
     center: {
         flex: 1,

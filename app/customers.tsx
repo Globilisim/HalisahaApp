@@ -86,6 +86,26 @@ export default function CustomersPage() {
                 isSubscriber: isSubscriber,
             };
 
+            // Mükerrer Kayıt Kontrolü (Case-insensitive name and exact phone)
+            const duplicatePhone = customers.find(c =>
+                c.phone.trim() === customerData.phone && c.id !== editingCustomer?.id
+            );
+            const duplicateName = customers.find(c =>
+                c.name.trim().toLowerCase() === customerData.name.toLowerCase() && c.id !== editingCustomer?.id
+            );
+
+            if (duplicatePhone) {
+                showToast(`Bu telefon numarası zaten ${duplicatePhone.name} adına kayıtlı.`, 'error');
+                setIsSaving(false);
+                return;
+            }
+
+            if (duplicateName) {
+                showToast('Bu isimle zaten bir kayıt mevcut. Farklı bir isim veya numara kullanın.', 'error');
+                setIsSaving(false);
+                return;
+            }
+
             if (editingCustomer?.id) {
                 await firebaseService.updateCustomer(editingCustomer.id, customerData);
                 showToast('Müşteri güncellendi.', 'success');

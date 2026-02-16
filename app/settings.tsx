@@ -8,7 +8,10 @@ import { NotificationService, BuzzerSettings } from '../services/NotificationSer
 import { useToast } from '../config/ToastContext';
 import Slider from '@react-native-community/slider';
 
+import { useRouter } from 'expo-router';
+
 export default function SettingsPage() {
+    const router = useRouter();
     const { theme, mode, setMode } = useTheme();
     const { showToast } = useToast();
     const [buzzerSettings, setBuzzerSettings] = useState<BuzzerSettings | null>(null);
@@ -114,6 +117,19 @@ export default function SettingsPage() {
                             />
                         </View>
                     </List.Section>
+
+                    <Divider />
+
+                    <List.Section titleStyle={{ color: theme['color-primary'], fontWeight: 'bold' }} title="Yönetim">
+                        <List.Item
+                            title="Abonelik Yönetimi"
+                            description="Haftalık sabit abone saatlerini düzenle"
+                            left={props => <List.Icon {...props} icon="calendar-sync" />}
+                            onPress={() => router.push('/subscriptions')}
+                        />
+                    </List.Section>
+
+                    <Divider />
                 </Card>
 
                 <Button
