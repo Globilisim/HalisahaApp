@@ -265,33 +265,8 @@ export default function DashboardHome() {
     };
 
     const playSound = async (type: 'start' | 'warning' | 'end') => {
-        if (Platform.OS === 'web') return; // Disable sound on web to prevent crashes
-        try {
-            let soundFile;
-            switch (type) {
-                case 'start':
-                    soundFile = require('../assets/sounds/start.wav');
-                    break;
-                case 'warning':
-                    soundFile = require('../assets/sounds/warning.wav');
-                    break;
-                case 'end':
-                    soundFile = require('../assets/sounds/end.wav');
-                    break;
-            }
-
-            const { sound } = await Audio.Sound.createAsync(soundFile);
-            await sound.setVolumeAsync(buzzerSettings.volume);
-            await sound.playAsync();
-
-            sound.setOnPlaybackStatusUpdate(async (status) => {
-                if (status.isLoaded && status.didJustFinish) {
-                    await sound.unloadAsync();
-                }
-            });
-        } catch (error) {
-            console.log('Ses çalma hatası:', error);
-        }
+        if (Platform.OS === 'web') return;
+        await NotificationService.playSound(type, buzzerSettings.volume);
     };
 
     const renderPitchColumn = (pitchId: 'barnebau' | 'noucamp', title: string) => {

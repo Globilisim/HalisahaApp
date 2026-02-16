@@ -113,6 +113,36 @@ export const NotificationService = {
         }
     },
 
+    // Ses dosyasını manuel çal (Test amaçlı)
+    playSound: async (type: 'start' | 'warning' | 'end', volume: number = 1.0) => {
+        try {
+            let soundFile;
+            switch (type) {
+                case 'start':
+                    soundFile = require('../assets/sounds/start.wav');
+                    break;
+                case 'warning':
+                    soundFile = require('../assets/sounds/warning.wav');
+                    break;
+                case 'end':
+                    soundFile = require('../assets/sounds/end.wav');
+                    break;
+            }
+
+            const { sound } = await Audio.Sound.createAsync(soundFile);
+            await sound.setVolumeAsync(volume);
+            await sound.playAsync();
+
+            sound.setOnPlaybackStatusUpdate(async (status) => {
+                if (status.isLoaded && status.didJustFinish) {
+                    await sound.unloadAsync();
+                }
+            });
+        } catch (error) {
+            console.log('Ses çalma hatası:', error);
+        }
+    },
+
     // Tüm planlanmış bildirimleri iptal et (Randevu silindiğinde)
     cancelAllForAppointment: async (appointmentId: string) => {
         const scheduled = await Notifications.getAllScheduledNotificationsAsync();

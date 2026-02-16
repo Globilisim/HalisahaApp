@@ -61,33 +61,42 @@ export default function SettingsPage() {
                             title="Başlangıç Zili"
                             description="Maç başladığında çalar"
                             right={() => (
-                                <Switch
-                                    value={buzzerSettings.startEnabled}
-                                    onValueChange={(val) => updateBuzzer({ startEnabled: val })}
-                                    color={theme['color-primary']}
-                                />
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Button mode="text" compact onPress={() => NotificationService.playSound('start', buzzerSettings.volume)}>Dinle</Button>
+                                    <Switch
+                                        value={buzzerSettings.startEnabled}
+                                        onValueChange={(val) => updateBuzzer({ startEnabled: val })}
+                                        color={theme['color-primary']}
+                                    />
+                                </View>
                             )}
                         />
                         <List.Item
                             title="Uyarı Zili"
                             description="Bitişe 5 dk kala çalar"
                             right={() => (
-                                <Switch
-                                    value={buzzerSettings.warningEnabled}
-                                    onValueChange={(val) => updateBuzzer({ warningEnabled: val })}
-                                    color={theme['color-primary']}
-                                />
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Button mode="text" compact onPress={() => NotificationService.playSound('warning', buzzerSettings.volume)}>Dinle</Button>
+                                    <Switch
+                                        value={buzzerSettings.warningEnabled}
+                                        onValueChange={(val) => updateBuzzer({ warningEnabled: val })}
+                                        color={theme['color-primary']}
+                                    />
+                                </View>
                             )}
                         />
                         <List.Item
                             title="Bitiş Zili"
                             description="Maç bittiğinde çalar"
                             right={() => (
-                                <Switch
-                                    value={buzzerSettings.endEnabled}
-                                    onValueChange={(val) => updateBuzzer({ endEnabled: val })}
-                                    color={theme['color-primary']}
-                                />
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Button mode="text" compact onPress={() => NotificationService.playSound('end', buzzerSettings.volume)}>Dinle</Button>
+                                    <Switch
+                                        value={buzzerSettings.endEnabled}
+                                        onValueChange={(val) => updateBuzzer({ endEnabled: val })}
+                                        color={theme['color-primary']}
+                                    />
+                                </View>
                             )}
                         />
 
