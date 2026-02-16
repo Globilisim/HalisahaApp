@@ -33,6 +33,8 @@ export interface Customer {
     active: boolean;
     month?: number; // Legacy support
     months?: number[]; // [0-11]
+    depositAmount?: string;
+    depositDate?: any;
 }
 
 const APPOINTMENTS_COLLECTION = 'appointments';

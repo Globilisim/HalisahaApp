@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Surface, IconButton, Button, Portal, Modal, List, Searchbar, SegmentedButtons, ActivityIndicator, Divider } from 'react-native-paper';
+import { Surface, IconButton, Button, Portal, Modal, List, Searchbar, SegmentedButtons, ActivityIndicator, Divider, TextInput } from 'react-native-paper';
 import { MainLayout } from '../components/Layout/MainLayout';
 import { ThemedText } from '../components/ThemedText';
 import { useTheme } from '../config/ThemeContext';
 import { useToast } from '../config/ToastContext';
 import { firebaseService, Subscription, Appointment, Customer } from '../services/firebaseService';
+import { serverTimestamp } from 'firebase/firestore';
 
 const MONTHS = [
     { label: 'Genel', value: -1 },
@@ -70,6 +71,7 @@ export default function SubscriptionsPage() {
     const [tempSelectedDays, setTempSelectedDays] = useState<number[]>([]);
     const [tempSelectedMonths, setTempSelectedMonths] = useState<number[]>([]); // [] means General
     const [editingSub, setEditingSub] = useState<Subscription | null>(null);
+    const [depositAmount, setDepositAmount] = useState('');
 
     useEffect(() => {
         fetchData();
@@ -131,7 +133,9 @@ export default function SubscriptionsPage() {
                 customerName: customer.name,
                 customerPhone: customer.phone,
                 active: true,
-                months: tempSelectedMonths.length > 0 ? tempSelectedMonths : (selectedMonth !== -1 ? [selectedMonth] : [])
+                months: tempSelectedMonths.length > 0 ? tempSelectedMonths : (selectedMonth !== -1 ? [selectedMonth] : []),
+                depositAmount: depositAmount,
+                depositDate: depositAmount ? serverTimestamp() : null
             };
             await firebaseService.addSubscription(newSub);
             showToast('Abonelik başarıyla eklendi.', 'success');
@@ -148,7 +152,12 @@ export default function SubscriptionsPage() {
         if (!editingSub?.id) return;
 
         if (tempSelectedDays.length === 0) {
-            customAlert("Aboneliği Bitir", "Hiçbir gün seçilmedi. Bu aboneliği tamamen sonlandırmak istiyor musunuz?", async () => {
+            let deleteMsg = "Hiçbir gün seçilmedi. Bu aboneliği tamamen sonlandırmak istiyor musunuz?";
+            if (editingSub.depositAmount && parseInt(editingSub.depositAmount) > 0) {
+                deleteMsg = `⚠️ DİKKAT: Bu müşterinin ${editingSub.depositAmount} TL Güvence Kaporası bulunmaktadır.\n\n${deleteMsg}`;
+            }
+
+            customAlert("Aboneliği Bitir", deleteMsg, async () => {
                 await handleDeleteSubscription(editingSub.id!);
                 setIsAddModalVisible(false);
             });
@@ -157,13 +166,22 @@ export default function SubscriptionsPage() {
 
         setIsSaving(true);
         try {
-            await firebaseService.updateSubscription(editingSub.id, {
+            const dataToUpdate: Partial<Subscription> = {
                 daysOfWeek: tempSelectedDays,
-                months: tempSelectedMonths
-            });
+                months: tempSelectedMonths,
+                depositAmount: depositAmount
+            };
+
+            // Eğer kapora değiştiyse veya yeni eklendiyse tarih at
+            if (depositAmount !== editingSub.depositAmount) {
+                dataToUpdate.depositDate = serverTimestamp();
+            }
+
+            await firebaseService.updateSubscription(editingSub.id, dataToUpdate);
             showToast('Abonelik güncellendi.', 'success');
             setIsAddModalVisible(false);
             setEditingSub(null);
+            setDepositAmount('');
             fetchData();
         } catch (error) {
             showToast('Güncelleme hatası.', 'error');
@@ -173,13 +191,22 @@ export default function SubscriptionsPage() {
     };
 
     const handleDeleteSubscription = async (id: string) => {
-        try {
-            await firebaseService.deleteSubscription(id);
-            showToast('Abonelik silindi.', 'success');
-            fetchData();
-        } catch (error) {
-            showToast('Silme işlemi başarısız.', 'error');
+        const sub = subscriptions.find(s => s.id === id);
+        let msg = "Bu aboneliği tamamen silmek istediğinize emin misiniz?";
+
+        if (sub?.depositAmount && parseInt(sub.depositAmount) > 0) {
+            msg = `⚠️ DİKKAT: Bu müşterinin ${sub.depositAmount} TL Güvence Kaporası bulunmaktadır. İade etmeyi unutmayınız!\n\n${msg}`;
         }
+
+        customAlert("Aboneliği Sil", msg, async () => {
+            try {
+                await firebaseService.deleteSubscription(id);
+                showToast('Abonelik silindi.', 'success');
+                fetchData();
+            } catch (error) {
+                showToast('Silme işlemi başarısız.', 'error');
+            }
+        });
     };
 
     const filteredCustomers = customers.filter(c =>
@@ -387,7 +414,16 @@ export default function SubscriptionsPage() {
                                 {sub ? (
                                     <View>
                                         <ThemedText style={styles.subName}>{sub.customerName}</ThemedText>
-                                        <ThemedText variant="caption">{sub.customerPhone}</ThemedText>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                                            <ThemedText variant="caption">{sub.customerPhone}</ThemedText>
+                                            {sub.depositAmount && parseInt(sub.depositAmount) > 0 && (
+                                                <View style={{ backgroundColor: theme['color-primary'] + '20', paddingHorizontal: 4, borderRadius: 4 }}>
+                                                    <ThemedText style={{ fontSize: 10, color: theme['color-primary'], fontWeight: 'bold' }}>
+                                                        {sub.depositAmount} TL Güvence
+                                                    </ThemedText>
+                                                </View>
+                                            )}
+                                        </View>
                                     </View>
                                 ) : (
                                     <ThemedText style={{ fontStyle: 'italic', opacity: 0.5 }}>Boş Saat</ThemedText>
@@ -404,6 +440,7 @@ export default function SubscriptionsPage() {
                                             setEditingSub(sub);
                                             setTempSelectedDays(sub.daysOfWeek || [sub.dayOfWeek!]);
                                             setTempSelectedMonths(sub.months || (sub.month !== undefined && sub.month !== -1 ? [sub.month] : []));
+                                            setDepositAmount(sub.depositAmount || '');
                                             setIsAddModalVisible(true);
                                         }}
                                     />
@@ -491,7 +528,25 @@ export default function SubscriptionsPage() {
                         </View>
                     </ScrollView>
 
-                    <ThemedText style={styles.label}>Müşteri Seçin</ThemedText>
+                    <ThemedText style={styles.label}>
+                        Güvence Kaporası (Bir seferlik)
+                    </ThemedText>
+                    <TextInput
+                        mode="outlined"
+                        placeholder="Örn: 500"
+                        value={depositAmount}
+                        onChangeText={setDepositAmount}
+                        keyboardType="numeric"
+                        left={<TextInput.Affix text="₺" />}
+                        style={{ marginBottom: 5, backgroundColor: theme['color-bg'] }}
+                    />
+                    {editingSub?.depositDate && (
+                        <ThemedText style={{ fontSize: 10, opacity: 0.6, marginBottom: 15 }}>
+                            İşlem Tarihi: {new Date(editingSub.depositDate?.seconds * 1000).toLocaleDateString('tr-TR')}
+                        </ThemedText>
+                    )}
+
+                    <ThemedText style={[styles.label, { marginTop: editingSub?.depositDate ? 0 : 10 }]}>Müşteri Seçin</ThemedText>
                     <Searchbar
                         placeholder="Müşteri Ara..."
                         onChangeText={setSearchQuery}
